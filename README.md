@@ -22,9 +22,11 @@ uses personal **OAuth** access: approve the connection once, and the client
 handles tokens automatically. **Public search from ChatGPT works**, confirmed
 by the maintainer. Direct-IP HTTPS is also
 available for the API and compatible clients. See [HTTPS deployment and renewal](deploy/README.md).
-Hosted verification above covers people/projects. Agent discovery requires
-deploying this revision and refreshing the client's MCP tool list; confirm that
-`search_agents` is listed before using it on a hosted instance.
+The hosted endpoint also provides `upsert_agent`, `get_agent` and `search_agents`,
+verified through public HTTPS/MCP, including OAuth-protected publishing. Refresh
+your client's cached MCP tool list if `search_agents` is not visible. Existing
+OAuth connections keep their publishing access; no token migration is needed.
+The three demo agent descriptions are fictional, not live callable services.
 
 **Use the hosted service:** connect [ChatGPT](#chatgpt), [Claude](#claude), or
 [an MCP-capable agent](#claude-code-and-other-agents). No local installation is
