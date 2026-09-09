@@ -12,7 +12,7 @@ import secrets
 import time
 from contextlib import contextmanager
 from functools import wraps
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from uuid import uuid4
 
 import psycopg
@@ -448,7 +448,14 @@ def oauth_routes(provider, links):
         if not prepared:
             return HTMLResponse("Connection request expired. Start again from your MCP client.", status_code=400, headers=SAFE_HEADERS)
         row, client = prepared
-        callback = html.escape(str(row["params"]["redirect_uri"]))
+        callback_url = str(row["params"]["redirect_uri"])
+        callback = html.escape(callback_url)
+        parts = urlsplit(callback_url)
+        # Use only the validated registered callback's origin. Percent-encode
+        # CSP metacharacters (including wildcards); never interpolate its query.
+        callback_origin = quote(f"{parts.scheme}://{parts.netloc}", safe=":/[]")
+        consent_csp = SAFE_HEADERS["Content-Security-Policy"].replace(
+            "form-action 'self';", f"form-action 'self' {callback_origin};")
         name = html.escape(client.get("client_name") or "MCP client")
         banner = f'<p role="alert">{html.escape(error)}</p>' if error else ""
         page = f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
@@ -466,7 +473,12 @@ Only use your own code. All connections of this browser's current owner will joi
 <p><label><input type="checkbox" name="confirm_merge_publications" value="true">
 I also explicitly agree to transfer this browser owner's existing publications, if any. No content will be deleted.</label></p>
 <button name="decision" value="allow">Allow / Разрешить</button><button name="decision" value="deny">Cancel / Отмена</button></form></html>'''
-        response = HTMLResponse(page, status_code=status, headers=SAFE_HEADERS)
+        # no-referrer makes browser form POSTs send Origin: null, which our CSRF
+        # origin check correctly rejects. Send only the origin (never the flow
+        # query string); redirects and other OAuth responses stay no-referrer.
+        # Chromium applies form-action to the 303 callback redirect as well.
+        response = HTMLResponse(page, status_code=status, headers={
+            **SAFE_HEADERS, "Referrer-Policy": "strict-origin", "Content-Security-Policy": consent_csp})
         response.set_cookie(provider.csrf_cookie, csrf, max_age=FLOW_TTL, secure=provider.secure,
                             httponly=True, samesite="lax", path="/")
         return response

@@ -424,6 +424,25 @@ Connection tests cover code hashing, expiry, replacement, revocation, rate
 limits, concurrent one-time redemption, both MCP tools, browser consent/CSRF,
 duplicate removal, publication-preserving merges, and old-token/refresh continuity.
 
+The optional **real-browser consent regression** also clicks Allow and Cancel in
+Chromium, follows the cross-origin OAuth callback and exchanges the authorization
+code. It reproduces the old `no-referrer` / `Origin: null` failure without manually
+setting browser request headers. In a separate test environment, run it against
+a disposable test instance, with
+`API_BASE_URL` and `DATABASE_URL` pointing to that same instance:
+
+```sh
+pip install -r requirements.lock -r tests/requirements-browser.txt
+python -m playwright install --with-deps --only-shell chromium
+python tests/browser_consent.py
+```
+
+Browser dependencies are test-only, not part of the production container. The
+test uses an isolated browser and a temporary loopback callback listener; no
+authorization code is sent to an external site. It removes only its own
+synthetic clients and owners. If Allow was opened before a consent-page update,
+restart the connection from your MCP client instead of resubmitting the old page.
+
 ## VPS deployment
 
 The running demo uses direct-IP HTTPS with Certbot and a twice-daily renewal

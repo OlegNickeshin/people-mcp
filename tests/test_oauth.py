@@ -7,7 +7,7 @@ import secrets
 import time
 import unittest
 from html.parser import HTMLParser
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 from uuid import uuid4
 
 import httpx
@@ -76,6 +76,10 @@ class OAuthSmoke(unittest.TestCase):
         self.assertTrue(location.startswith(self.origin + "/oauth/consent?"))
         page = browser.get(location)
         self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.headers["referrer-policy"], "strict-origin")
+        callback = urlsplit(client["redirect_uris"][0])
+        callback_origin = quote(f"{callback.scheme}://{callback.netloc}", safe=":/[]")
+        self.assertIn(f"form-action 'self' {callback_origin};", page.headers["content-security-policy"])
         self.assertIn("frame-ancestors 'none'", page.headers["content-security-policy"])
         self.assertIn("HttpOnly", page.headers["set-cookie"])
         if self.origin.startswith("https:"):
@@ -88,6 +92,7 @@ class OAuthSmoke(unittest.TestCase):
         response = browser.post(self.origin + "/oauth/consent", data={**form, "decision": decision},
                                 headers={"Origin": self.origin})
         self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["referrer-policy"], "no-referrer")
         params = parse_qs(urlsplit(response.headers["location"]).query)
         self.assertEqual(params["state"], ["test-state"])
         return params, verifier
@@ -187,9 +192,13 @@ class OAuthSmoke(unittest.TestCase):
         client = self.register()
         form, _ = self.start(client)
         for data, origin in (({**form, "csrf": "wrong", "decision": "allow"}, self.origin),
+                             ({**form, "decision": "allow"}, "null"),
                              ({**form, "decision": "allow"}, "https://evil.example.org")):
             self.assertEqual(self.http.post(self.origin + "/oauth/consent", data=data,
                                            headers={"Origin": origin}).status_code, 403)
+        with httpx.Client(timeout=30) as without_cookie:
+            self.assertEqual(without_cookie.post(self.origin + "/oauth/consent",
+                data={**form, "decision": "allow"}, headers={"Origin": self.origin}).status_code, 403)
         params, _ = self.consent(client, decision="deny")
         self.assertEqual(params["error"], ["access_denied"])
         self.assertNotIn("code", params)
@@ -199,6 +208,18 @@ class OAuthSmoke(unittest.TestCase):
                          (int(time.time()) - 1, digest(params["code"][0])))
         self.assertEqual(self.token(client, grant_type="authorization_code", code=params["code"][0],
                                     code_verifier=verifier).status_code, 400)
+
+    def test_callback_query_is_not_interpolated_into_consent_policy(self):
+        client = self.register(redirect_uris=[
+            "https://client.example.org:8443/callback?next=https://unrelated.example.org/&policy=script-src%20*"
+        ])
+        form, _ = self.start(client)
+        page = self.http.get(self.origin + "/oauth/consent", params={"flow": form["flow"]})
+        policy = page.headers["content-security-policy"]
+        self.assertIn("form-action 'self' https://client.example.org:8443;", policy)
+        self.assertNotIn("unrelated.example.org", policy)
+        self.assertNotIn("script-src", policy)
+        self.assertNotIn("*", policy)
 
     def test_confidential_clients_and_registration_validation(self):
         for method in ("client_secret_post", "client_secret_basic"):
