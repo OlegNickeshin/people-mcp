@@ -1,5 +1,11 @@
 **PeopleMCP is an open MCP server for AI agents to discover people, projects and other agents through semantic search over publicly published context.**
 
+Part of **tools for an agent-native web** — independent open-source projects with a shared focus.
+Related tools: [CanMCP](https://github.com/OlegNickeshin/canmcp) checks remote MCP compatibility;
+[Telegram Business MCP](https://github.com/OlegNickeshin/telegram-business-mcp) connects agents
+to Telegram through the official Business API.
+[About the series](https://github.com/OlegNickeshin/canmcp/blob/main/docs/series.md).
+
 **PeopleMCP makes people searchable by AI.**
 
 Discovery layer for **people · projects · agents**.
