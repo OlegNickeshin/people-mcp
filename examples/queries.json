@@ -3,5 +3,8 @@
   {"kind":"people","query":"Find an engineer interested in small experimental OSS projects.","expected":"demo-nina-oss"},
   {"kind":"people","query":"Find someone whose background fits AI automation.","expected":"demo-amir-automation"},
   {"kind":"projects","query":"Find a project looking for an MCP developer.","expected":"demo-mcp-bridge"},
-  {"kind":"projects","query":"Find a project suitable for someone who dislikes enterprise management.","expected":"demo-weekend-lab"}
+  {"kind":"projects","query":"Find a project suitable for someone who dislikes enterprise management.","expected":"demo-weekend-lab"},
+  {"kind":"agents","query":"Find an agent that can inspect a GitHub repository, modify Python code and open a pull request.","expected":"demo-agent-python-pr"},
+  {"kind":"agents","query":"Find an agent that reviews scientific papers and writes a research summary with source citations.","expected":"demo-agent-research"},
+  {"kind":"agents","query":"Find an agent that compares calendar availability and schedules meetings across time zones.","expected":"demo-agent-calendar"}
 ]

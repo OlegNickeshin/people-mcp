@@ -11,6 +11,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
 from server.config import Settings
+from server.db import TABLES
 from server.linking import normalize_code
 from server.oauth import PublisherOAuth, digest
 from tests import test_oauth as helpers
@@ -101,23 +102,22 @@ class ConnectionSmoke(unittest.TestCase):
         _, source = self.login()
         original = self.create(source)
         _, target, _ = self.separate()
-        records = [self.create(target, kind) for kind in ("profiles", "projects")]
+        records = [self.create(target, kind) for kind in TABLES]
         target_owner = self.owner(target)
         code = self.issue(source)
         denied = self.redeem(target, code)
         self.assertEqual(denied.status_code, 409)
         self.assertEqual(denied.json()["error"], "merge_confirmation_required")
-        self.assertEqual(denied.json()["publications_to_transfer"], {"profiles": 1, "projects": 1})
+        self.assertEqual(denied.json()["publications_to_transfer"], {"profiles": 1, "projects": 1, "agents": 1})
         self.assertEqual(self.owner(target), target_owner)
         self.assertEqual(self.redeem(target, code, confirm_merge_publications="true").status_code, 422)
         accepted = self.redeem(target, code, confirm_merge_publications=True)
         self.assertEqual(accepted.status_code, 200)
         self.assertEqual(self.owner(target), self.owner(source))
-        for kind, record in (("profiles", original), ("profiles", records[0]), ("projects", records[1])):
+        for kind, record in [("profiles", original), *zip(TABLES, records)]:
             self.assertEqual(self.http.get(f"/{kind}/{record['id']}").json(), record)
             with psycopg.connect(Settings().database_url) as conn:
-                table = "profile_chunks" if kind == "profiles" else "project_chunks"
-                owner = "profile_id" if kind == "profiles" else "project_id"
+                _, table, owner = TABLES[kind]
                 self.assertGreater(conn.execute(f"SELECT count(*) FROM {table} WHERE {owner}=%s", (record["id"],)).fetchone()[0], 0)
 
     def test_replacement_expiration_revocation_and_rate_limits(self):

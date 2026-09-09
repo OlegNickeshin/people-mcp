@@ -139,7 +139,7 @@ class OAuthSmoke(unittest.TestCase):
         _, restored = self.login()  # A different connector, same browser owner.
         with httpx.Client(timeout=120, follow_redirects=False) as other_browser:
             _, stranger = self.login(other_browser)
-        for kind in ("profiles", "projects"):
+        for kind in ("profiles", "projects", "agents"):
             record = self.create(tokens, kind)
             path = f"/{kind}/{record['id']}"
             patch = {"content": "Synthetic test of ocean ecology collaboration.", "publish": True}

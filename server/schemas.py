@@ -96,6 +96,7 @@ class MatchedChunk(StrictModel):
 class SearchMatch(StrictModel):
     profile_id: UUID | None = None
     project_id: UUID | None = None
+    agent_id: UUID | None = None
     entity: Publication
     score: float
     matched_chunks: list[MatchedChunk]

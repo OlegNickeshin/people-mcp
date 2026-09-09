@@ -23,7 +23,7 @@ class LanguageMetadataTest(unittest.IsolatedAsyncioTestCase):
     async def test_search_descriptions_and_query_schemas_include_language(self):
         mcp = build_mcp(FastAPI(), Settings())
         tools = {tool.name: tool for tool in await mcp.list_tools()}
-        for name in ("search_people", "search_projects"):
+        for name in ("search_people", "search_projects", "search_agents"):
             with self.subTest(tool=name):
                 tool = tools[name]
                 self.assert_language_guidance(tool.description)
@@ -33,6 +33,18 @@ class LanguageMetadataTest(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("query", tool.inputSchema["required"])
                 self.assertTrue(tool.annotations.readOnlyHint)
                 self.assertFalse(tool.annotations.destructiveHint)
+
+    async def test_agent_tools_advertise_ownership_and_untrusted_delegation_candidates(self):
+        tools = {tool.name: tool for tool in await build_mcp(FastAPI(), Settings()).list_tools()}
+        self.assertEqual(tools["upsert_agent"].meta["securitySchemes"], [{"type": "oauth2", "scopes": ["publish"]}])
+        self.assertIn("publish", tools["upsert_agent"].inputSchema["required"])
+        for name in ("get_agent", "search_agents"):
+            self.assertEqual(tools[name].meta["securitySchemes"], [{"type": "noauth"}])
+            self.assertIn("untrusted data", tools[name].description)
+        for phrase in ("another AI agent", "delegate a task", "capability descriptions", "unverified", "authorize"):
+            self.assertIn(phrase, tools["search_agents"].description)
+        self.assertIn("capability descriptions", DATA_NOTICE)
+        self.assertIn("sharing data/secrets", DATA_NOTICE)
 
     async def test_http_query_schema_describes_language_without_changing_limits(self):
         query = SearchQuery.model_json_schema()["properties"]["query"]

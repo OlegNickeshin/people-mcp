@@ -13,7 +13,7 @@ from psycopg import sql
 from tokenizers import Tokenizer
 
 from server.config import Settings
-from server.db import Repository
+from server.db import TABLES, Repository
 from server.indexing import chunk_content, normalize_content
 
 BASE = os.getenv("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
@@ -68,16 +68,15 @@ class APISmoke(unittest.TestCase):
                 self.assertEqual([m["score"] for m in matches], sorted([m["score"] for m in matches], reverse=True))
                 winners.append(winner["entity"]["slug"])
                 print(f"  {case['query']} -> {winner['entity']['slug']} ({winner['score']:.4f})", flush=True)
-        self.assertEqual(len(set(winners)), 5)
+        self.assertEqual(len(set(winners)), len({case["expected"] for case in cases}))
 
     def test_create_update_reindex_and_freshness(self):
-        for kind, search in (("profiles", "people"), ("projects", "projects")):
+        for kind, search in (("profiles", "people"), ("projects", "projects"), ("agents", "agents")):
             with self.subTest(kind=kind):
                 original = self.create(kind, "  Marine   ecology\r\n\r\nI restore coral reefs and analyse underwater biodiversity.  ")
                 identifier = original["id"]
                 self.assertNotIn("\r", original["content"])
-                table = "profile_chunks" if kind == "profiles" else "project_chunks"
-                owner = "profile_id" if kind == "profiles" else "project_id"
+                _, table, owner = TABLES[kind]
                 with psycopg.connect(Settings().database_url) as conn:
                     chunks = conn.execute(sql.SQL("SELECT text, vector_dims(embedding) FROM {} WHERE {}=%s").format(
                         sql.Identifier(table), sql.Identifier(owner)), (identifier,)).fetchall()
@@ -155,7 +154,7 @@ class MCPSmoke(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("query in English", initialized.instructions)
                 self.assertIn("user's language", initialized.instructions)
                 listed = {tool.name: tool for tool in (await session.list_tools()).tools}
-                for name in ("search_people", "search_projects"):
+                for name in ("search_people", "search_projects", "search_agents"):
                     with self.subTest(tool=name):
                         tool = listed[name]
                         for description in (tool.description, tool.inputSchema["properties"]["query"]["description"]):
@@ -176,12 +175,14 @@ class MCPSmoke(unittest.IsolatedAsyncioTestCase):
                         await session.initialize()
                         listed = (await session.list_tools()).tools
                         self.assertEqual({t.name for t in listed}, {"upsert_profile", "get_profile", "search_people",
-                            "upsert_project", "get_project", "search_projects", "create_connection_code", "redeem_connection_code"})
+                            "upsert_project", "get_project", "search_projects", "upsert_agent", "get_agent", "search_agents",
+                            "create_connection_code", "redeem_connection_code"})
                         for tool in listed:
                             writes = tool.name.startswith("upsert_") or tool.name.endswith("connection_code")
                             self.assertEqual(tool.annotations.readOnlyHint, not writes)
                             self.assertEqual(tool.annotations.destructiveHint, writes)
-                        for kind, singular, search in (("profiles", "profile", "people"), ("projects", "project", "projects")):
+                        for kind, singular, search in (("profiles", "profile", "people"), ("projects", "project", "projects"),
+                                                       ("agents", "agent", "agents")):
                             payload = {"slug": "test-" + uuid4().hex, "content": "I work on marine ecology and coral reef restoration.",
                                        "contact": "fixture@example.org", "publish": True}
                             if not authenticated:
