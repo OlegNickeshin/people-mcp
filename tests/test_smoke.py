@@ -176,9 +176,9 @@ class MCPSmoke(unittest.IsolatedAsyncioTestCase):
                         await session.initialize()
                         listed = (await session.list_tools()).tools
                         self.assertEqual({t.name for t in listed}, {"upsert_profile", "get_profile", "search_people",
-                                                                  "upsert_project", "get_project", "search_projects"})
+                            "upsert_project", "get_project", "search_projects", "create_connection_code", "redeem_connection_code"})
                         for tool in listed:
-                            writes = tool.name.startswith("upsert_")
+                            writes = tool.name.startswith("upsert_") or tool.name.endswith("connection_code")
                             self.assertEqual(tool.annotations.readOnlyHint, not writes)
                             self.assertEqual(tool.annotations.destructiveHint, writes)
                         for kind, singular, search in (("profiles", "profile", "people"), ("projects", "project", "projects")):

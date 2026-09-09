@@ -16,6 +16,16 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class CreateConnectionCode(StrictModel):
+    confirm: Literal[True] = Field(description="Explicit request to generate a private, one-time connection code")
+
+
+class RedeemConnectionCode(CreateConnectionCode):
+    code: Annotated[str, Field(min_length=1, max_length=64, repr=False)]
+    confirm_merge_publications: bool = Field(default=False, strict=True,
+        description="Only true after separate explicit consent to transfer this owner's existing publications and connections")
+
+
 class CreatePublication(StrictModel):
     slug: Slug
     content: Content

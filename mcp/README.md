@@ -29,9 +29,14 @@ verbatim evidence. PeopleMCP does not run a translator or enforce query language
 direct API clients must prepare English queries themselves. Refresh tool
 metadata or reconnect existing clients after updating the server.
 
-The six tools are `upsert_profile`, `get_profile`, `search_people`, `upsert_project`,
+The six discovery tools are `upsert_profile`, `get_profile`, `search_people`, `upsert_project`,
 `get_project` and `search_projects`. Upserts identify an existing publication by
 slug; pass its optional UUID `id` when renaming. Get tools accept UUID or slug.
+Two personal OAuth helpers, `create_connection_code` and `redeem_connection_code`,
+link existing clients without exposing access/refresh tokens. Each requires
+`confirm=true`. Request a code in your existing authorized private chat and redeem
+it in your other authorized chat, or enter it on the OAuth consent page. Refresh
+cached tool lists after this update. See [linking instructions](../README.md#link-chatgpt-claude-or-another-client-to-the-same-owner).
 
 Example configuration for clients supporting the `mcpServers` HTTP format
 (other clients may require different keys):
@@ -50,7 +55,7 @@ Example configuration for clients supporting the `mcpServers` HTTP format
 OAuth uses authorization-code + S256 PKCE, dynamic client registration and
 rotating refresh tokens. Discovery metadata is at
 `/.well-known/oauth-protected-resource/mcp` (also available at the origin path)
-and `/.well-known/oauth-authorization-server`. Upserts declare `oauth2` security
+and `/.well-known/oauth-authorization-server`. Upserts and connection-code tools declare `oauth2` security
 schemes with scope `publish`; reads declare `noauth`. Unauthenticated upserts
 return HTTP 401 with `WWW-Authenticate` before entering the MCP handler, so
 clients can open OAuth and retry the call. The adapter also includes the
@@ -60,12 +65,25 @@ See [Claude lazy authentication](https://claude.com/docs/connectors/building/laz
 and [ChatGPT tool authentication](https://developers.openai.com/plugins/build/auth).
 
 The browser's secure cookie restores the same publisher when reconnecting for
-90 days. A different browser creates a different publisher. This is not verified
-identity. Lost browser and connector credentials have no automatic recovery.
+90 days. Without that cookie or a connection code, a fresh OAuth connection
+creates a different publisher. A retained OAuth connection does not depend on
+the browser cookie. This is not verified identity. Losing all browser and
+connector credentials still has no automatic recovery.
 Every edit checks ownership in the database; existing operator/demo entries are
 not claimable. The privileged `WRITE_TOKEN` remains only for the operator's CLI
 and administration, never for distribution to connector users. Secrets do not
-belong in URLs, chat, profile content or tool arguments.
+belong in URLs or profile content. Access, refresh and operator tokens never
+belong in chat or tool arguments. Only explicitly requested, short-lived
+connection codes may be shown/entered in the user's private chat.
+
+Codes are single-use, expire after five minutes, and are stored hashed. A new code
+replaces the previous one. Code issuance/redemption is limited to five requests
+per owner per five minutes; browser redemption also has a per-flow limit. The
+issuer remains the canonical owner. Linking moves the receiving owner's existing
+connections; no public content is deleted. If it already has publications, the
+server returns 409 until the user separately approves `confirm_merge_publications=true`.
+Existing token/refresh grants and browser sessions continue with the canonical
+owner; only the duplicate internal owner ID and its outstanding codes are removed.
 
 The adapter is `server/mcp_adapter.py`. It forwards requests through the actual
 FastAPI routes using HTTPX's ASGI transport, including validation and caller

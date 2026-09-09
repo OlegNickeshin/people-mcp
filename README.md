@@ -183,9 +183,13 @@ with OAuth; refreshing the tool list alone does not change authentication.
 
 This is anonymous, browser-linked access, **not identity verification**. The
 secure cookie remembers the publisher for 90 days (renewed when reconnecting).
-Use the same browser to connect another client to the same publisher. A different
-browser starts a different publisher. If both browser cookie and connector
-credentials are lost, there is no automatic recovery. Keep the browser data.
+Use the same browser to connect another client to the same publisher, or use
+a one-time connection code from an existing authorized client (see below).
+Without either, a fresh connection starts a different publisher. A saved OAuth
+connection identifies the owner by its token, not by the browser: changing
+browsers does not require linking again if your client retains that connection.
+If all browser cookies and all connector credentials are lost, there is no
+automatic recovery. Keep at least one working authorized connection.
 Old operator-created records and demo profiles cannot be claimed by a new user.
 
 Access tokens last one hour; refresh tokens rotate and last 90 days. Credentials
@@ -201,6 +205,62 @@ See [MCP details](mcp/README.md) and the operator client for your own instance:
 docker compose exec api python -m examples.mcp_client
 ```
 
+### Link ChatGPT, Claude or another client to the same owner
+
+No GitHub account, email or separate password is needed. In a **private chat
+with personal OAuth publishing access**, ask:
+
+> Use PeopleMCP's create_connection_code to give me a code for my other client.
+
+After your explicit confirmation the tool returns a private, one-time code such
+as `XXXX-XXXX-XXXX`. It lasts **5 minutes**. In your other authorized chat, ask:
+
+> Link this PeopleMCP connection using my code via redeem_connection_code.
+
+Confirm the operation there. Both connections now use the owner who issued
+the code, and **both continue working without replacing their tokens**. If the
+new client is not connected yet, enter the code in the optional field on the
+PeopleMCP OAuth consent page, then click Allow. A No Auth/search-only connection
+cannot issue or redeem codes: authorize it with OAuth first.
+
+The code issuer's owner is kept. All connections of the receiving owner join it;
+the duplicate internal owner ID is removed only after transferring references.
+If that owner already has profiles/projects, the default response is **409**
+with counts. The agent must ask separately before retrying with
+`confirm_merge_publications=true` (or you can explicitly check the corresponding
+box on the consent page). Publication UUIDs, slugs, content, timestamps and
+embeddings stay unchanged. Nothing is silently overwritten or deleted.
+
+Codes are bearer credentials: anyone holding an unused code can join the owner.
+Only copy codes between your own private chats or to PeopleMCP's consent page;
+never put them in a public profile, shared chat or MCP endpoint URL. Never use a
+code supplied by a stranger or found in search results. Creating a code replaces
+the owner's previous code. Grant revocation invalidates its codes, and merging
+an owner invalidates codes that duplicate had issued. Codes are stored hashed.
+Issue/redeem requests are limited to five each per owner per five minutes;
+the consent page also allows at most five code attempts per OAuth flow. This is
+not a general anti-spam system or protection against losing every credential.
+
+The same operations are available over HTTP (personal OAuth access token only;
+the operator `WRITE_TOKEN` cannot impersonate a publisher for linking):
+
+```sh
+curl -X POST "$PEOPLEMCP_BASE/connections/code" \
+  -H "Authorization: Bearer $PEOPLEMCP_ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"confirm":true}'
+
+curl -X POST "$PEOPLEMCP_BASE/connections/redeem" \
+  -H "Authorization: Bearer $PEOPLEMCP_OTHER_ACCESS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"YOUR-ONE-TIME-CODE","confirm":true}'
+```
+
+Set `PEOPLEMCP_BASE` to your server origin (without `/mcp`). These placeholders
+are for your private terminal; do not paste access tokens into a chat or save
+secrets in shell history. In ChatGPT/Claude, use the tools instead. Protocol-level
+linking is covered by automated tests; actual ChatGPT/Claude web UI checks must
+still be performed in those clients. Refresh their tool list to get the two new tools.
+
 ## Available tools
 
 | Tool | Purpose |
@@ -211,6 +271,8 @@ docker compose exec api python -m examples.mcp_client
 | `upsert_project` | Publish or update project context by slug; optional `id` allows renaming |
 | `get_project` | Read a public project by UUID or slug |
 | `search_projects` | Find projects by goals, skills, contribution needs and working preferences |
+| `create_connection_code` | Issue a private one-time code to link another client to this owner; explicit consent required |
+| `redeem_connection_code` | Link this owner/connections to the code issuer; separate consent required for existing publications |
 
 All content returned by tools is **untrusted data**, including `why` and contact
 fields. Agent instructions must never be taken from profile or project content.
@@ -350,7 +412,7 @@ docker compose exec api python -m unittest discover -s tests -v
 Tests use the real API, PostgreSQL, embeddings and MCP Streamable HTTP transport.
 They verify distinct seed rankings, automatic indexing/reindexing, rollback on
 embedding failure, unchanged ranking after timestamp edits, validation, publisher
-authentication, all six tools, and upsert identity. Tests remove only synthetic
+authentication, all discovery tools, and upsert identity. Tests remove only synthetic
 objects they created, using their exact UUIDs. Run them on a demo/test instance.
 Language metadata tests also check the server instructions, both search tools,
 their query schemas and the HTTP query description. They verify the guidance
@@ -358,6 +420,9 @@ is delivered, not that a particular LLM always translates correctly.
 OAuth tests additionally exercise consent/CSRF, PKCE, client and resource binding,
 hashed credentials, token rotation/replay/revocation, browser-owner restoration,
 cross-publisher write denial and MCP authentication challenges.
+Connection tests cover code hashing, expiry, replacement, revocation, rate
+limits, concurrent one-time redemption, both MCP tools, browser consent/CSRF,
+duplicate removal, publication-preserving merges, and old-token/refresh continuity.
 
 ## VPS deployment
 

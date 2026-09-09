@@ -23,6 +23,12 @@ class Forbidden(Exception):
     pass
 
 
+def lock_publishers(conn):
+    # One transaction lock keeps this small MVP's ownership changes atomic with
+    # publication writes and OAuth grants. Public search/read never take it.
+    conn.execute("SELECT pg_advisory_xact_lock(724639102)")
+
+
 class Repository:
     def __init__(self, database_url: str, embedder=None):
         self.database_url = database_url
@@ -56,6 +62,10 @@ class Repository:
     def save(self, kind: str, data: dict, identifier: str | None = None, *, publisher_id=None):
         table, chunks, owner = TABLES[kind]
         with self.connection() as conn:
+            if publisher_id is not None:
+                lock_publishers(conn)
+                if not conn.execute("SELECT 1 FROM oauth_publishers WHERE id=%s", (publisher_id,)).fetchone():
+                    raise Forbidden("Connection ownership changed; retry with the current connection")
             old = None
             if identifier is not None:
                 old = conn.execute(sql.SQL("SELECT * FROM {} WHERE id::text=%s OR slug=%s FOR UPDATE").format(

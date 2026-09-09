@@ -30,7 +30,7 @@ class Inputs(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
-        if tag == "input":
+        if tag == "input" and attrs.get("type") != "checkbox":
             self.values[attrs["name"]] = attrs["value"]
 
 
@@ -226,7 +226,7 @@ class OAuthSmoke(unittest.TestCase):
                             await session.initialize()
                             for tool in (await session.list_tools()).tools:
                                 schemes = tool.model_dump(by_alias=True)["securitySchemes"]
-                                self.assertEqual(schemes[0]["type"], "oauth2" if tool.name.startswith("upsert_") else "noauth")
+                                self.assertEqual(schemes[0]["type"], "noauth" if tool.annotations.readOnlyHint else "oauth2")
                             payload = {"slug": "oauth-test-" + uuid4().hex, "content": "Synthetic open source ecology project.",
                                        "contact": "oauth-test@example.org", "publish": True}
                             if token:

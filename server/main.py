@@ -13,9 +13,11 @@ from starlette.concurrency import run_in_threadpool
 from server.config import MODEL_NAME, Settings
 from server.db import Forbidden, NotFound, Repository
 from server.indexing import LocalEmbedder
+from server.linking import PublisherLinks
 from server.mcp_adapter import build_mcp
 from server.oauth import MCPWriteAuthMiddleware, PublisherOAuth, oauth_routes
 from server.schemas import CreatePublication, PatchPublication, Publication, SearchQuery, SearchResponse
+from server.schemas import CreateConnectionCode, RedeemConnectionCode
 
 logger = logging.getLogger("peoplemcp")
 
@@ -26,6 +28,7 @@ def create_app(settings: Settings | None = None):
         raise RuntimeError("WRITE_TOKEN must not be empty")
     repo = Repository(settings.database_url)
     oauth = PublisherOAuth(settings)
+    links = PublisherLinks(oauth)
 
     def initialize():
         repo.migrate()
@@ -61,6 +64,29 @@ def create_app(settings: Settings | None = None):
         if not access:
             raise HTTPException(401, "Connect with OAuth to publish", headers={"WWW-Authenticate": oauth.challenge()})
         return access.subject
+
+    def personal_token(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
+        token = credentials.credentials if credentials else ""
+        if secrets.compare_digest(token.encode(), settings.write_token.encode()):
+            raise HTTPException(403, "Use personal OAuth access; the operator token has no personal owner")
+        return token  # Linking validates it again inside its atomic transaction.
+
+    def connection_response(result):
+        status = result.pop("http_status", 200)
+        headers = {"Cache-Control": "no-store", "Pragma": "no-cache"}
+        if status == 401:
+            headers["WWW-Authenticate"] = oauth.challenge()
+        if "retry_after" in result:
+            headers["Retry-After"] = str(result["retry_after"])
+        return JSONResponse(result, status_code=status, headers=headers)
+
+    @api.post("/connections/code", tags=["connections"])
+    async def create_connection_code(body: CreateConnectionCode, token=Depends(personal_token)):
+        return connection_response(await links.issue(token))
+
+    @api.post("/connections/redeem", tags=["connections"])
+    async def redeem_connection_code(body: RedeemConnectionCode, token=Depends(personal_token)):
+        return connection_response(await links.redeem(token, body.code, body.confirm_merge_publications))
 
     @api.exception_handler(Forbidden)
     async def forbidden(request, exc):
@@ -115,7 +141,7 @@ def create_app(settings: Settings | None = None):
         return {"query": body.query, "results": repo.search("projects", body.query, body.limit, body.min_score)}
 
     mcp = build_mcp(api, settings)
-    api.router.routes.extend(oauth_routes(oauth))
+    api.router.routes.extend(oauth_routes(oauth, links))
     # The mounted app serves /mcp; its lifespan is managed by the parent above.
     api.mount("/", mcp.streamable_http_app())
     return api

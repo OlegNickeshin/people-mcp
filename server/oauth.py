@@ -38,8 +38,10 @@ from mcp.server.auth.routes import build_metadata, create_auth_routes, create_pr
 from mcp.server.auth.settings import ClientRegistrationOptions, RevocationOptions
 from mcp.server.transport_security import RequestBodyLimitMiddleware
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
+from server.db import lock_publishers
 
 SCOPE = "publish"
+PROTECTED_TOOLS = frozenset({"upsert_profile", "upsert_project", "create_connection_code", "redeem_connection_code"})
 ACCESS_TTL = 3600
 SESSION_TTL = 90 * 86400
 FLOW_TTL = 600
@@ -150,9 +152,11 @@ class PublisherOAuth:
         return None
 
     @threaded
-    def finish_consent(self, flow, csrf, browser_secret, allow):
-        now = int(time.time())
+    def finish_consent(self, flow, csrf, browser_secret, allow, connection_code="",
+                       confirm_merge_publications=False, links=None):
         with self.connection() as conn:
+            lock_publishers(conn)
+            now = int(time.time())
             row = conn.execute("SELECT * FROM oauth_pending WHERE flow_hash=%s FOR UPDATE", (digest(flow),)).fetchone()
             if (not row or row["expires_at"] <= now or row["code_hash"] is not None
                     or not row["csrf_hash"] or not secrets.compare_digest(row["csrf_hash"], digest(csrf))):
@@ -165,14 +169,22 @@ class PublisherOAuth:
                 "SELECT publisher_id FROM oauth_browser_sessions WHERE token_hash=%s AND expires_at>%s",
                 (digest(browser_secret or ""), now),
             ).fetchone()
+            linked_id = None
+            if connection_code:
+                linked = links.redeem_in_transaction(conn, session["publisher_id"] if session else None,
+                    connection_code, confirm_merge_publications, flow_hash=digest(flow))
+                if "error" in linked:
+                    return linked
+                linked_id = linked["publisher_id"]
             if session:
-                publisher_id = session["publisher_id"]
+                publisher_id = linked_id or session["publisher_id"]
                 conn.execute("UPDATE oauth_browser_sessions SET expires_at=%s WHERE token_hash=%s",
                              (now + SESSION_TTL, digest(browser_secret)))
             else:
-                publisher_id = uuid4()
+                publisher_id = linked_id or uuid4()
                 browser_secret = secrets.token_urlsafe(32)
-                conn.execute("INSERT INTO oauth_publishers (id) VALUES (%s)", (publisher_id,))
+                if not linked_id:
+                    conn.execute("INSERT INTO oauth_publishers (id) VALUES (%s)", (publisher_id,))
                 conn.execute("INSERT INTO oauth_browser_sessions VALUES (%s,%s,%s)",
                              (digest(browser_secret), publisher_id, now + SESSION_TTL))
             code = secrets.token_urlsafe(32)
@@ -206,6 +218,7 @@ class PublisherOAuth:
     def exchange_authorization_code(self, client, authorization_code):
         tokens = None
         with self.connection() as conn:
+            lock_publishers(conn)
             row = conn.execute("SELECT * FROM oauth_pending WHERE code_hash=%s AND client_id=%s FOR UPDATE",
                                (digest(authorization_code.code), client.client_id)).fetchone()
             if row and row["expires_at"] > time.time():
@@ -252,6 +265,7 @@ class PublisherOAuth:
     def exchange_refresh_token(self, client, refresh_token, scopes):
         tokens = None
         with self.connection() as conn:
+            lock_publishers(conn)
             row = conn.execute(
                 "SELECT t.*,g.revoked,g.scopes,g.resource FROM oauth_tokens t JOIN oauth_grants g ON g.id=t.grant_id "
                 "WHERE t.token_hash=%s AND t.kind='refresh' AND g.client_id=%s FOR UPDATE OF t,g",
@@ -271,6 +285,7 @@ class PublisherOAuth:
     @threaded
     def revoke_token(self, token):
         with self.connection() as conn:
+            lock_publishers(conn)
             conn.execute("UPDATE oauth_grants SET revoked=true WHERE client_id=%s AND id IN "
                          "(SELECT grant_id FROM oauth_tokens WHERE token_hash=%s)",
                          (token.client_id, digest(token.token)))
@@ -324,7 +339,7 @@ class MCPWriteAuthMiddleware:
                 messages = parsed if isinstance(parsed, list) else [parsed]
                 protected = any(isinstance(msg, dict) and msg.get("method") == "tools/call"
                                 and isinstance(msg.get("params"), dict)
-                                and msg["params"].get("name") in ("upsert_profile", "upsert_project") for msg in messages)
+                                and msg["params"].get("name") in tuple(PROTECTED_TOOLS) for msg in messages)
             except (ValueError, UnicodeDecodeError):
                 pass  # Protocol validation remains the MCP SDK's job.
             sent = False
@@ -342,7 +357,11 @@ class MCPWriteAuthMiddleware:
                                      "_meta": {"mcp/www_authenticate": [challenge]}}, status_code=401,
                                     headers={**SAFE_HEADERS, "WWW-Authenticate": challenge})
             return await response(scope, receive, send)
-        await self.app(scope, downstream_receive, send)
+        async def no_store(event):
+            if event["type"] == "http.response.start" and protected:
+                event = {**event, "headers": [*event.get("headers", []), (b"cache-control", b"no-store")]}
+            await send(event)
+        await self.app(scope, downstream_receive, no_store)
 
 
 class HashedClientAuthenticator:
@@ -381,7 +400,7 @@ class HashedClientAuthenticator:
         return client
 
 
-def oauth_routes(provider):
+def oauth_routes(provider, links):
     registration = ClientRegistrationOptions(enabled=True, valid_scopes=[SCOPE], default_scopes=[SCOPE])
     revocation = RevocationOptions(enabled=True)
     issuer = AnyHttpUrl(provider.origin)
@@ -423,29 +442,38 @@ def oauth_routes(provider):
                                 status_code=400, headers=SAFE_HEADERS)
         return await (revoke_handler.handle(request) if request.url.path == "/revoke" else token_handler.handle(request))
 
-    async def consent(request: Request):
-        if request.method == "GET":
-            flow = request.query_params.get("flow", "")
-            csrf = secrets.token_urlsafe(32)
-            prepared = await provider.prepare_consent(flow, csrf)
-            if not prepared:
-                return HTMLResponse("Connection request expired. Start again from your MCP client.", status_code=400, headers=SAFE_HEADERS)
-            row, client = prepared
-            callback = html.escape(str(row["params"]["redirect_uri"]))
-            name = html.escape(client.get("client_name") or "MCP client")
-            page = f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+    async def consent_page(flow, error=None, status=200):
+        csrf = secrets.token_urlsafe(32)
+        prepared = await provider.prepare_consent(flow, csrf)
+        if not prepared:
+            return HTMLResponse("Connection request expired. Start again from your MCP client.", status_code=400, headers=SAFE_HEADERS)
+        row, client = prepared
+        callback = html.escape(str(row["params"]["redirect_uri"]))
+        name = html.escape(client.get("client_name") or "MCP client")
+        banner = f'<p role="alert">{html.escape(error)}</p>' if error else ""
+        page = f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Connect PeopleMCP</title><style>body{{font:17px system-ui;max-width:600px;margin:8vh auto;padding:24px;background:#10141d;color:#eee}}button{{padding:12px 20px;margin:10px 10px 0 0;cursor:pointer}}code{{overflow-wrap:anywhere}}small{{color:#bbc}}</style>
-<h1>Connect PeopleMCP</h1><p><strong>{name}</strong> requests permission to publish and edit your own public profiles and projects.</p>
+<h1>Connect PeopleMCP</h1>{banner}<p><strong>{name}</strong> requests permission to publish and edit your own public profiles and projects.</p>
 <p>No GitHub login or password is needed. This browser remembers your publishing access for 90 days. Search stays public.</p>
 <p><strong>Only approve if you started this connection.</strong> Client names are unverified. Return address: <code>{callback}</code></p>
 <p>Publishing still requires your explicit consent for each publication. This connection cannot edit other publishers' content.</p>
 <p><small>This is anonymous access, not verified identity. If you lose both this browser's cookie and your connector credentials, automatic recovery is unavailable.</small></p>
 <form method="post" action="/oauth/consent"><input type="hidden" name="flow" value="{html.escape(flow, quote=True)}"><input type="hidden" name="csrf" value="{csrf}">
+<p><label>Already connected elsewhere? Enter your one-time PeopleMCP code (optional):<br>
+<input name="connection_code" value="" maxlength="64" autocomplete="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX"></label></p>
+<p><small>Request it with create_connection_code in your existing authorized chat. The code lasts 5 minutes.
+Only use your own code. All connections of this browser's current owner will join the code issuer's owner.</small></p>
+<p><label><input type="checkbox" name="confirm_merge_publications" value="true">
+I also explicitly agree to transfer this browser owner's existing publications, if any. No content will be deleted.</label></p>
 <button name="decision" value="allow">Allow / Разрешить</button><button name="decision" value="deny">Cancel / Отмена</button></form></html>'''
-            response = HTMLResponse(page, headers=SAFE_HEADERS)
-            response.set_cookie(provider.csrf_cookie, csrf, max_age=FLOW_TTL, secure=provider.secure,
-                                httponly=True, samesite="lax", path="/")
-            return response
+        response = HTMLResponse(page, status_code=status, headers=SAFE_HEADERS)
+        response.set_cookie(provider.csrf_cookie, csrf, max_age=FLOW_TTL, secure=provider.secure,
+                            httponly=True, samesite="lax", path="/")
+        return response
+
+    async def consent(request: Request):
+        if request.method == "GET":
+            return await consent_page(request.query_params.get("flow", ""))
         form = await request.form()
         csrf = form.get("csrf", "")
         cookie = request.cookies.get(provider.csrf_cookie, "")
@@ -455,9 +483,13 @@ def oauth_routes(provider):
                 or form.get("decision") not in ("allow", "deny")):
             return JSONResponse({"error": "Invalid consent request"}, status_code=403, headers=SAFE_HEADERS)
         flow = form.get("flow")
-        if not isinstance(flow, str):
+        connection_code = form.get("connection_code", "")
+        if not isinstance(flow, str) or not isinstance(connection_code, str) or len(connection_code) > 64:
             return JSONResponse({"error": "Invalid consent request"}, status_code=400, headers=SAFE_HEADERS)
-        result = await provider.finish_consent(flow, csrf, request.cookies.get(provider.browser_cookie), form["decision"] == "allow")
+        result = await provider.finish_consent(flow, csrf, request.cookies.get(provider.browser_cookie), form["decision"] == "allow",
+            connection_code.strip(), form.get("confirm_merge_publications") == "true", links)
+        if isinstance(result, dict):
+            return await consent_page(flow, result["detail"], result["http_status"])
         if not result:
             return JSONResponse({"error": "Expired or already used consent request"}, status_code=400, headers=SAFE_HEADERS)
         location, browser_secret = result
