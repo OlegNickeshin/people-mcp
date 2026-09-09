@@ -1,0 +1,5 @@
+# Replace this host with your own DNS name and set MCP_ALLOWED_HOSTS accordingly.
+people-mcp.194-87-35-210.sslip.io {
+    encode gzip
+    reverse_proxy 127.0.0.1:8000
+}

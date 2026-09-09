@@ -1,0 +1,45 @@
+name: people-mcp
+services:
+  db:
+    image: pgvector/pgvector:0.8.2-pg17
+    environment:
+      POSTGRES_DB: peoplemcp
+      POSTGRES_USER: peoplemcp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-peoplemcp-local}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U peoplemcp -d peoplemcp"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+    restart: unless-stopped
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://peoplemcp:${POSTGRES_PASSWORD:-peoplemcp-local}@db:5432/peoplemcp
+      WRITE_TOKEN: ${WRITE_TOKEN:-local-development-only}
+      MODEL_CACHE: /models
+      SEED_DEMO: ${SEED_DEMO:-true}
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*,api:*}
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-8000}:8000"
+    volumes:
+      - model-cache:/models
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 6s
+      retries: 10
+      start_period: 180s
+    mem_limit: 900m
+    cpus: 1.0
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  model-cache:

@@ -1,0 +1,72 @@
+{
+  "profiles": [
+    {
+      "slug": "demo-oleg-mcp",
+      "content": "I build Model Context Protocol (MCP) integrations that let AI assistants work with real tools. My recent experiment connects Telegram Business conversations to remote MCP clients over HTTP. I understand Telegram bots, webhooks, message archives, authentication and reliable API adapters.\n\nI enjoy hands-on Python and TypeScript integration work. I am looking for collaborators building useful conversational tools, especially projects joining MCP with Telegram. I can help debug an integration and ship a small working prototype. I prefer clear technical scope and direct communication.",
+      "contact": "oleg@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-nina-oss",
+      "content": "I am a software engineer who enjoys tiny experimental open-source projects, playful developer tools and weekend prototypes. I contribute Python scripts, Rust command-line utilities and readable documentation. I like exploring uncertain ideas with two or three curious people.\n\nI have around five hours each week for an unpaid OSS collaboration. I want to write code, learn and share a modest release. I dislike enterprise management, status meetings, corporate reporting and layers of approval. Personal autonomy and a friendly low-pressure team matter more to me than scale or job titles.",
+      "contact": "nina@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-amir-automation",
+      "content": "My background is in AI automation engineering. I turn repetitive business operations into reliable workflows: classify incoming requests with language models, extract structured information from documents, connect CRMs and schedule follow-up actions with human approval. I use Python, n8n, APIs and evaluation datasets.\n\nI previously automated invoice processing and support-ticket triage for small teams. I measure error rates and time saved, and investigate failures instead of hiding them. I am available for paid projects that combine machine learning, process analysis and dependable integrations.",
+      "contact": "amir@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-elena-design",
+      "content": "I am a product designer focused on accessible interfaces and community services. I interview people, prototype navigation and test screen-reader experiences. My strongest skills are qualitative research, typography, plain-language content and interaction design.\n\nI am looking for a civic technology or education project that needs inclusive design. I prefer paid part-time work and close collaboration with users. I am not a backend developer and I do not implement messaging APIs.",
+      "contact": "elena@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-victor-enterprise",
+      "content": "I lead enterprise software delivery programmes across large organisations. My experience includes ERP migrations, procurement, vendor coordination, budget planning and executive reporting. I build roadmaps, manage multiple teams and negotiate milestones with stakeholders.\n\nI am seeking a full-time engineering management position in a structured corporate environment. I like governance, predictable processes and long-term organisational change. I am interested in managing delivery rather than writing experimental software after work.",
+      "contact": "victor@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-maya-ecology",
+      "content": "I study urban biodiversity and organise community bird surveys. I analyse ecological field observations with R and GIS, teach volunteers how to collect accurate data and publish illustrated guides to local habitats.\n\nI want to join a citizen-science project measuring changes in green spaces. I can help with research design, ecological interpretation and public workshops. I prefer outdoor fieldwork and environmental education to commercial software development.",
+      "contact": "maya@example.org",
+      "publish": true
+    }
+  ],
+  "projects": [
+    {
+      "slug": "demo-mcp-bridge",
+      "content": "MCP Bridge is an open-source project connecting Telegram Business messages to AI assistants through Model Context Protocol. We have a working archive and need an MCP developer to implement remote HTTP tools, improve protocol compatibility and test Telegram integrations.\n\nWe are looking for a Python or TypeScript contributor who understands MCP servers, tool schemas and reliable bot APIs. The first task is small: expose searchable conversation context with clear permissions. Collaboration is asynchronous and technical.",
+      "contact": "bridge@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-weekend-lab",
+      "content": "Weekend Lab is a tiny experimental OSS collective making playful command-line tools and small AI prototypes. Two independent engineers share unfinished ideas, try them for a weekend and publish the useful bits. Contributors choose their own tasks and can offer just a few hours a week.\n\nThis project suits someone who dislikes enterprise management: no managers, corporate hierarchy, status meetings, procurement or quarterly reporting. We value autonomy, curiosity and hands-on coding. We are looking for a friendly collaborator who wants low-pressure experiments rather than a full-time job. Contributions are unpaid.",
+      "contact": "weekend@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-invoice-flow",
+      "content": "Invoice Flow helps small accounting teams automate invoice intake. We extract fields from incoming PDFs, reconcile purchase orders, flag uncertain results for human review and post approved records to the accounting system.\n\nWe need an AI automation engineer with Python, document extraction and API integration experience. The project has a paid contract, a measurable accuracy target and a bounded pilot. We care about evaluation, audit trails and reducing repetitive operational work.",
+      "contact": "invoices@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-enterprise-rollout",
+      "content": "Enterprise Rollout is a three-year ERP transformation across multiple corporate divisions. The work involves governance boards, procurement, compliance documentation, quarterly planning and coordination of large delivery teams.\n\nWe are hiring an experienced programme manager for a full-time paid role. Success means stakeholder alignment, accurate budgets and predictable reporting. This is a structured management position with extensive meetings and formal approval processes.",
+      "contact": "rollout@example.org",
+      "publish": true
+    },
+    {
+      "slug": "demo-city-birds",
+      "content": "City Birds is a citizen-science effort tracking birds in urban parks. Volunteers record seasonal observations, publish maps and run accessible public workshops about local habitats.\n\nWe need an ecologist to design surveys and a designer to improve the volunteer guide. The work combines outdoor field research, community education and open environmental data. No commercial hiring or software integration work is involved.",
+      "contact": "birds@example.org",
+      "publish": true
+    }
+  ]
+}

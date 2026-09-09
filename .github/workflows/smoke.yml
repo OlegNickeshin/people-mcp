@@ -1,0 +1,14 @@
+name: Semantic discovery smoke tests
+on: [push, pull_request]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up --build -d --wait --wait-timeout 600
+      - run: docker compose exec -T api python -m unittest discover -s tests -v
+      - if: failure()
+        run: docker compose logs --tail 100
+      - if: always()
+        run: docker compose down

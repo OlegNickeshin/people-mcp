@@ -1,0 +1,7 @@
+[
+  {"kind":"people","query":"Find someone who understands MCP and Telegram integrations.","expected":"demo-oleg-mcp"},
+  {"kind":"people","query":"Find an engineer interested in small experimental OSS projects.","expected":"demo-nina-oss"},
+  {"kind":"people","query":"Find someone whose background fits AI automation.","expected":"demo-amir-automation"},
+  {"kind":"projects","query":"Find a project looking for an MCP developer.","expected":"demo-mcp-bridge"},
+  {"kind":"projects","query":"Find a project suitable for someone who dislikes enterprise management.","expected":"demo-weekend-lab"}
+]
