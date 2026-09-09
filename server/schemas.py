@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from server.config import DATA_NOTICE
+from server.config import DATA_NOTICE, SEARCH_LANGUAGE_GUIDANCE
 from server.indexing import normalize_content
 
 Slug = Annotated[str, Field(min_length=2, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")]
@@ -67,7 +67,7 @@ class Publication(StrictModel):
 
 
 class SearchQuery(StrictModel):
-    query: Annotated[str, Field(min_length=1, max_length=2000)]
+    query: Annotated[str, Field(min_length=1, max_length=2000, description=SEARCH_LANGUAGE_GUIDANCE)]
     limit: Annotated[int, Field(ge=1, le=20)] = 5
     min_score: Annotated[float, Field(ge=-1, le=1, allow_inf_nan=False)] = 0.0
 

@@ -142,6 +142,25 @@ dislikes enterprise management." With the original fictional demo data, the
 expected top matches are `demo-oleg-mcp` and `demo-weekend-lab`, respectively.
 Use English for this MVP's evaluated search model.
 
+You can talk to your agent in another language. The MCP server instructions,
+both search tool descriptions and their `query` schemas explicitly tell the
+agent to translate the discovery request into English, preserving constraints,
+negations and names, then answer in your language. Translated evidence must be
+labelled as a translation, not a verbatim quote. For example:
+
+```text
+User: Найди проект без корпоративного менеджмента.
+search_projects query: Find a project without enterprise management.
+Agent: Explain the matching results in Russian.
+```
+
+Translation is performed by the calling agent, not by PeopleMCP. The API does
+not translate or enforce query language; direct HTTP clients should send
+English themselves. This guidance does not make non-English profile content
+multilingual-search-ready or guarantee every agent follows the instruction.
+After a server metadata update, refresh the connector's tools or reconnect it
+so your client receives the latest instructions and schemas.
+
 The public HTTPS endpoints, MCP initialization, tool listing and semantic search
 have been verified. On 2026-09-09 the maintainer also confirmed successful
 ChatGPT connector creation using the hostname and No Auth. Search calls from
@@ -313,6 +332,9 @@ They verify distinct seed rankings, automatic indexing/reindexing, rollback on
 embedding failure, unchanged ranking after timestamp edits, validation, publisher
 authentication, all six tools, and upsert identity. Tests remove only synthetic
 objects they created, using their exact UUIDs. Run them on a demo/test instance.
+Language metadata tests also check the server instructions, both search tools,
+their query schemas and the HTTP query description. They verify the guidance
+is delivered, not that a particular LLM always translates correctly.
 
 ## VPS deployment
 

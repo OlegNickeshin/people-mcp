@@ -19,6 +19,14 @@ in-chat search and Claude interface checks.
 For your own local instance: `http://localhost:8000/mcp`.
 Publishing requires `Authorization: Bearer <WRITE_TOKEN>` on the HTTP connection.
 
+Search queries should be in English. The server instructions, search tool
+descriptions and `query` schemas tell agents to translate non-English requests
+before searching, preserve constraints, negations and names, and respond in the
+user's language. Translated excerpts must be labelled rather than presented as
+verbatim evidence. PeopleMCP does not run a translator or enforce query language;
+direct API clients must prepare English queries themselves. Refresh tool
+metadata or reconnect existing clients after updating the server.
+
 The six tools are `upsert_profile`, `get_profile`, `search_people`, `upsert_project`,
 `get_project` and `search_projects`. Upserts identify an existing publication by
 slug; pass its optional UUID `id` when renaming. Get tools accept UUID or slug.

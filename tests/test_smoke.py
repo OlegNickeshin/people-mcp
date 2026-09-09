@@ -148,6 +148,21 @@ class APISmoke(unittest.TestCase):
 
 
 class MCPSmoke(unittest.IsolatedAsyncioTestCase):
+    async def test_remote_search_language_guidance(self):
+        async with streamable_http_client(BASE + "/mcp") as (reader, writer, _):
+            async with ClientSession(reader, writer) as session:
+                initialized = await session.initialize()
+                self.assertIn("query in English", initialized.instructions)
+                self.assertIn("user's language", initialized.instructions)
+                listed = {tool.name: tool for tool in (await session.list_tools()).tools}
+                for name in ("search_people", "search_projects"):
+                    with self.subTest(tool=name):
+                        tool = listed[name]
+                        for description in (tool.description, tool.inputSchema["properties"]["query"]["description"]):
+                            self.assertIn("Translate non-English", description)
+                            self.assertIn("negations", description)
+                            self.assertIn("user's language", description)
+
     async def test_remote_tools_and_caller_auth(self):
         created = []
         def unpack(result):
