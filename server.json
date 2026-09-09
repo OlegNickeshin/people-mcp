@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.OlegNickeshin/people-mcp",
+  "title": "PeopleMCP",
+  "description": "Semantic search for people, projects and AI agents by task, skills and collaboration needs.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/OlegNickeshin/people-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/OlegNickeshin/people-mcp#readme",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://people-mcp.194-87-35-210.sslip.io/mcp"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "tags": [
+        "agent-discovery",
+        "mcp-server",
+        "ai-agents",
+        "semantic-search",
+        "agent-search",
+        "people-search"
+      ]
+    }
+  }
+}
