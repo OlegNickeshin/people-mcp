@@ -1,11 +1,19 @@
-# HTTPS directly on the VPS IP
+# VPS HTTPS: hostname and direct IP
 
-MCP: `https://194.87.35.210/mcp` (Streamable HTTP).
+Recommended MCP URL: `https://people-mcp.194-87-35-210.sslip.io/mcp` (Streamable HTTP).
+Direct-IP MCP endpoint: `https://194.87.35.210/mcp` for compatible clients.
 API docs: `https://194.87.35.210/docs`.
 
+The maintainer confirmed that ChatGPT connector creation succeeds with the
+hostname and No Auth, after failing with the direct-IP URL. Prefer the hostname
+for MCP client setup. Both URLs serve the same application; no separate index
+or server is involved.
+
 The IP endpoint uses a publicly trusted Let's Encrypt certificate, not a
-self-signed certificate. The old `people-mcp.194-87-35-210.sslip.io` address stays
-available for existing clients, but the IP endpoint does not use that DNS name.
+self-signed certificate. The hostname remains active for client compatibility;
+the direct-IP endpoint does not depend on that DNS name. The commands below
+configure and renew the **IP certificate**. Keep the hostname's Caddy site and
+its entry in `MCP_ALLOWED_HOSTS` for ChatGPT connections.
 If the server IP changes, issue a new certificate and change the client URL.
 
 ## Install or reproduce
@@ -14,7 +22,9 @@ These are root commands for the Ubuntu VPS, with PeopleMCP in `/opt/people-mcp`,
 the API bound to `127.0.0.1:8000`, Caddy running, and TCP 80/443 open. Before making
 changes, back up `/etc/caddy/Caddyfile` and `/opt/people-mcp/.env` into a root-only
 directory. On a different server, replace the IP in the Caddyfiles and settings;
-remove the compatibility domain block if it is not yours.
+replace the hostname block with your own hostname, or remove it if you only
+need direct-IP access. A valid IP certificate alone does not guarantee that a
+particular hosted MCP client accepts the URL.
 
 The application stays unchanged. Certbot 5.8.0 lives in an isolated host venv;
 it is not installed into the API image. [Certbot's IP-certificate support](https://letsencrypt.org/2026/03/11/shorter-certs-certbot)

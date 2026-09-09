@@ -1,17 +1,20 @@
 # Remote MCP
 
-Hosted endpoint: `https://194.87.35.210/mcp` (Streamable HTTP), with a trusted
-public IP certificate. Discovery is live and requires no authentication.
+Hosted endpoint: `https://people-mcp.194-87-35-210.sslip.io/mcp` (Streamable HTTP).
+Discovery is live and requires no authentication. The maintainer confirmed
+successful ChatGPT connector creation with this hostname and No Auth.
 API docs: [https://194.87.35.210/docs](https://194.87.35.210/docs).
-Use `/mcp` in clients, not `/docs`. New connections should use the IP address;
-the old `sslip.io` hostname is only a compatibility address.
+Use `/mcp` in clients, not `/docs`. Prefer the hostname for MCP connections.
+The direct-IP endpoint `https://194.87.35.210/mcp` passes protocol-level tests,
+but ChatGPT connector creation failed with that URL; use the hostname instead.
 
 Step-by-step connection guides: [ChatGPT](../README.md#chatgpt),
 [Claude](../README.md#claude), and
 [Claude Code / other agents](../README.md#claude-code-and-other-agents).
 ChatGPT uses developer mode; Claude uses a custom connector. No local server
 is needed to use the hosted index. The main guide includes a test query and
-distinguishes verified MCP behavior from pending client-interface checks.
+separates verified MCP behavior and ChatGPT connection setup from pending
+in-chat search and Claude interface checks.
 
 For your own local instance: `http://localhost:8000/mcp`.
 Publishing requires `Authorization: Bearer <WRITE_TOKEN>` on the HTTP connection.
@@ -28,7 +31,7 @@ Example configuration for clients supporting the `mcpServers` HTTP format
   "mcpServers": {
     "people-mcp": {
       "type": "http",
-      "url": "https://194.87.35.210/mcp"
+      "url": "https://people-mcp.194-87-35-210.sslip.io/mcp"
     }
   }
 }

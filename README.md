@@ -9,15 +9,15 @@ or projects, matching excerpts and the date their publication was last edited.
 This helps discover a collaborator whose intentions fit, beyond resume keywords.
 Job opportunities can be described in project context; there is no separate job board.
 
-Hosted demo: **`https://194.87.35.210/mcp`** (Streamable HTTP), with
+Hosted demo: **`https://people-mcp.194-87-35-210.sslip.io/mcp`** (Streamable HTTP), with
 [interactive API docs](https://194.87.35.210/docs). Search is public; publishing
-requires the operator token. The demo uses a trusted IP certificate and does not
-require a domain name. See [IP HTTPS and renewal](deploy/README.md).
+requires the operator token. **ChatGPT connector creation works with this
+hostname and No Auth**, confirmed by the maintainer. Direct-IP HTTPS is also
+available for the API and compatible clients. See [HTTPS deployment and renewal](deploy/README.md).
 
 **Use the hosted service:** connect [ChatGPT](#chatgpt), [Claude](#claude), or
 [an MCP-capable agent](#claude-code-and-other-agents). No local installation is
-needed. Use the IP URLs above for new connections; the old `sslip.io` hostname
-is retained only for compatibility.
+needed. Use the hostname URL above for MCP connections, including ChatGPT.
 
 ## Run your own instance (optional)
 
@@ -48,13 +48,18 @@ Remote MCP endpoint: `http://localhost:8000/mcp`.
 The hosted PeopleMCP service is live. Use **Streamable HTTP** with:
 
 ```text
-https://194.87.35.210/mcp
+https://people-mcp.194-87-35-210.sslip.io/mcp
 ```
 
 Public search and get tools need **no authentication**. Connect to `/mcp`, not
 `/docs`: [the API docs](https://194.87.35.210/docs) are a browser interface for
 HTTP requests, not an MCP connection URL. Pasting the URL into a chat alone does
 not install the connector.
+
+The direct-IP endpoint `https://194.87.35.210/mcp` passes protocol-level tests,
+but creating a ChatGPT connector with it failed in the maintainer's test.
+Using the hostname with the same **No Auth** setting succeeded. Use the hostname
+for ChatGPT; this observation does not establish a general ban on IP endpoints.
 
 ### ChatGPT
 
@@ -65,7 +70,7 @@ restrict custom apps.
 1. Open **Settings → Security and login** and enable **Developer mode**.
    This enables custom MCP tools; you do not need to write code.
 2. Open **Plugins**, click **+**, and create a developer-mode app named
-   `PeopleMCP` with the server URL `https://194.87.35.210/mcp`.
+   `PeopleMCP` with the server URL `https://people-mcp.194-87-35-210.sslip.io/mcp`.
 3. Select **No Authentication** for public discovery and save the app.
 4. In a conversation, use the **+** menu, choose **Developer mode**, and select
    PeopleMCP. Approve the search tool when prompted.
@@ -83,7 +88,7 @@ Menu names and plan access can change; see the
 In Claude on the web or desktop:
 
 1. Open **Customize → Connectors**, click **+**, then **Add custom connector**.
-2. Enter the name `PeopleMCP` and URL `https://194.87.35.210/mcp`.
+2. Enter the name `PeopleMCP` and URL `https://people-mcp.194-87-35-210.sslip.io/mcp`.
    Leave OAuth credentials empty: public discovery needs no login or token.
 3. Add the connector, then enable PeopleMCP from the conversation's
    **+ → Connectors** menu. Approve search/read tools when prompted.
@@ -98,7 +103,7 @@ Enterprise users may need an owner to add the connector first. See
 For an installed Claude Code CLI:
 
 ```sh
-claude mcp add --transport http people-mcp https://194.87.35.210/mcp
+claude mcp add --transport http people-mcp https://people-mcp.194-87-35-210.sslip.io/mcp
 claude mcp get people-mcp
 ```
 
@@ -113,7 +118,7 @@ local stdio servers. For clients accepting this `mcpServers` HTTP format:
   "mcpServers": {
     "people-mcp": {
       "type": "http",
-      "url": "https://194.87.35.210/mcp"
+      "url": "https://people-mcp.194-87-35-210.sslip.io/mcp"
     }
   }
 }
@@ -137,9 +142,11 @@ dislikes enterprise management." With the original fictional demo data, the
 expected top matches are `demo-oleg-mcp` and `demo-weekend-lab`, respectively.
 Use English for this MVP's evaluated search model.
 
-The public HTTPS endpoint, MCP initialization, tool listing and semantic search
-have been verified. The client instructions above follow vendor documentation;
-end-to-end checks in the ChatGPT and Claude interfaces are pending.
+The public HTTPS endpoints, MCP initialization, tool listing and semantic search
+have been verified. On 2026-09-09 the maintainer also confirmed successful
+ChatGPT connector creation using the hostname and No Auth. Search calls from
+ChatGPT and end-to-end checks in the Claude interface have not yet been reported.
+The setup steps follow the vendor documentation linked above.
 
 ### Publishing access
 
