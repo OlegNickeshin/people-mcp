@@ -11,8 +11,9 @@ Job opportunities can be described in project context; there is no separate job 
 
 Hosted demo: **`https://people-mcp.194-87-35-210.sslip.io/mcp`** (Streamable HTTP), with
 [interactive API docs](https://194.87.35.210/docs). Search is public; publishing
-requires the operator token. **ChatGPT connector creation works with this
-hostname and No Auth**, confirmed by the maintainer. Direct-IP HTTPS is also
+uses personal **OAuth** access: approve the connection once, and the client
+handles tokens automatically. **Public search from ChatGPT works**, confirmed
+by the maintainer. Direct-IP HTTPS is also
 available for the API and compatible clients. See [HTTPS deployment and renewal](deploy/README.md).
 
 **Use the hosted service:** connect [ChatGPT](#chatgpt), [Claude](#claude), or
@@ -71,13 +72,16 @@ restrict custom apps.
    This enables custom MCP tools; you do not need to write code.
 2. Open **Plugins**, click **+**, and create a developer-mode app named
    `PeopleMCP` with the server URL `https://people-mcp.194-87-35-210.sslip.io/mcp`.
-3. Select **No Authentication** for public discovery and save the app.
+3. Select **OAuth** to publish as well as search. Leave client ID and client
+   secret empty for automatic registration. Approve **Allow / Разрешить** on
+   the PeopleMCP page. No GitHub login, password or token copying is needed.
+   **No Authentication** remains available for search-only connections.
 4. In a conversation, use the **+** menu, choose **Developer mode**, and select
    PeopleMCP. Approve the search tool when prompted.
 
 For discovery, enable `search_people`, `search_projects`, `get_profile` and
-`get_project`; leave the two `upsert_*` tools disabled unless you have publishing
-access in a client that supports the required authorization header. Developer
+`get_project`. With OAuth you can also enable the two `upsert_*` tools to publish
+and edit your own context after explicit consent. Developer
 mode permits external tool calls, so only connect servers you trust.
 
 Menu names and plan access can change; see the
@@ -89,8 +93,9 @@ In Claude on the web or desktop:
 
 1. Open **Customize → Connectors**, click **+**, then **Add custom connector**.
 2. Enter the name `PeopleMCP` and URL `https://people-mcp.194-87-35-210.sslip.io/mcp`.
-   Leave OAuth credentials empty: public discovery needs no login or token.
-3. Add the connector, then enable PeopleMCP from the conversation's
+   Leave optional OAuth client ID and secret empty: registration is automatic.
+3. Connect/authorize with OAuth when offered and click **Allow / Разрешить**
+   on PeopleMCP. Then enable PeopleMCP from the conversation's
    **+ → Connectors** menu. Approve search/read tools when prompted.
 
 No ChatGPT-style developer mode is required. Custom remote connectors are
@@ -163,19 +168,34 @@ so your client receives the latest instructions and schemas.
 
 The public HTTPS endpoints, MCP initialization, tool listing and semantic search
 have been verified. On 2026-09-09 the maintainer also confirmed successful
-ChatGPT connector creation using the hostname and No Auth. Search calls from
-ChatGPT and end-to-end checks in the Claude interface have not yet been reported.
+ChatGPT connector creation and search/get calls using the hostname and No Auth.
+OAuth protocol tests are separate from web UI checks: the new OAuth publishing
+flow in ChatGPT and Claude still needs confirmation in those interfaces.
 The setup steps follow the vendor documentation linked above.
 
 ### Publishing access
 
-Publishing additionally requires an HTTP `Authorization: Bearer <WRITE_TOKEN>`
-header configured in the client. The default token `local-development-only` is
-for a loopback-only demo, **not the hosted instance**. A client without custom
-headers can still discover people and projects but cannot publish. This MVP
-does not implement OAuth or individual publisher accounts. Never share the
-operator token publicly or paste it into a chat: it can update any publication.
-See [MCP details](mcp/README.md) and the runnable client for a self-hosted instance:
+Connect using **OAuth**, approve once, then ask the agent to publish your context
+and explicitly approve its public content/contact. The connector obtains a
+personal token automatically and refreshes it. It can edit only publications
+owned by that publisher. Existing No Auth connections may need to be recreated
+with OAuth; refreshing the tool list alone does not change authentication.
+
+This is anonymous, browser-linked access, **not identity verification**. The
+secure cookie remembers the publisher for 90 days (renewed when reconnecting).
+Use the same browser to connect another client to the same publisher. A different
+browser starts a different publisher. If both browser cookie and connector
+credentials are lost, there is no automatic recovery. Keep the browser data.
+Old operator-created records and demo profiles cannot be claimed by a new user.
+
+Access tokens last one hour; refresh tokens rotate and last 90 days. Credentials
+are stored hashed in PostgreSQL and never put in endpoint URLs or tool arguments.
+No separate account dashboard, password service or external identity provider.
+
+`WRITE_TOKEN` remains an **operator-only** credential for administration and the
+local example below. Never distribute it: it can update any publication. The
+default `local-development-only` is not accepted by the hosted service.
+See [MCP details](mcp/README.md) and the operator client for your own instance:
 
 ```sh
 docker compose exec api python -m examples.mcp_client
@@ -219,12 +239,12 @@ curl -X PATCH http://localhost:8000/profiles/alex-oss \
 The same bodies work with `/projects`. HTTP `POST` creates and returns 201;
 duplicate slugs return 409. `PATCH` changes only supplied fields. Get/update
 paths accept UUID or slug. Missing objects return 404; invalid input returns
-422; writes without the publisher token return 401. Embedding/database failures
+422; unauthenticated writes return 401 with OAuth discovery metadata, and edits
+to another publisher's records return 403. Embedding/database failures
 return 503 where handled, and the previous publication remains intact.
 
-The MVP uses one operator-managed publishing token, not individual ownership or
-accounts. Give it only to trusted publishers: it can update any publication.
-Publish only content you have permission to submit. No external sources are
+OAuth publications have individual ownership; operator credentials are privileged
+and must remain private. Publish only content you have permission to submit. No external sources are
 crawled and no private Telegram data is imported.
 
 ## Search
@@ -335,6 +355,9 @@ objects they created, using their exact UUIDs. Run them on a demo/test instance.
 Language metadata tests also check the server instructions, both search tools,
 their query schemas and the HTTP query description. They verify the guidance
 is delivered, not that a particular LLM always translates correctly.
+OAuth tests additionally exercise consent/CSRF, PKCE, client and resource binding,
+hashed credentials, token rotation/replay/revocation, browser-owner restoration,
+cross-publisher write denial and MCP authentication challenges.
 
 ## VPS deployment
 
@@ -349,6 +372,7 @@ Set `MCP_ALLOWED_HOSTS` to include your domain, retaining the local hosts, e.g.:
 ```dotenv
 MCP_ALLOWED_HOSTS=localhost:*,127.0.0.1:*,api:*,people.example.com
 MCP_ALLOWED_ORIGINS=http://localhost:*,http://127.0.0.1:*,https://people.example.com
+PUBLIC_BASE_URL=https://people.example.com
 ```
 
 Keep `BIND_ADDRESS=127.0.0.1` and use a TLS reverse proxy on the host. For Caddy:
@@ -363,6 +387,9 @@ Point DNS to the VPS, allow incoming TCP 80/443 and connect clients to
 `https://people.example.com/mcp`. Add browser origins only when a browser client
 requires them; non-browser remote MCP clients generally send no Origin header.
 No credentials belong in the endpoint URL or Git repository.
+`PUBLIC_BASE_URL` is the canonical OAuth issuer/resource origin: use your public
+HTTPS hostname, without `/mcp`. Changing it invalidates old access tokens and
+requires reconnecting clients. HTTP is permitted only for loopback development.
 
 ```sh
 docker compose up --build -d --wait --wait-timeout 600
@@ -377,10 +404,12 @@ The schema is created by the idempotent SQL migration at startup. Back up the
 database before schema changes. Database password changes also require updating
 the existing PostgreSQL role; editing `.env` alone does not change a stored role.
 
-This is a small discovery MVP. It does not include per-user ownership, moderation,
-rate limiting or self-service removal. A trusted operator publishes/updates
-consented context and handles removal requests directly in the database; deleting
-a publication cascades to its chunks. Do not expose an unrestricted publishing key.
+This is a small discovery MVP with credential-based ownership, not verified
+identities. It has no moderation, rate limiting or self-service removal. Public
+anonymous registration is not anti-spam protection; operate a small monitored
+pilot, not an unmonitored directory at scale. The operator handles removal
+requests directly in the database; deleting a publication cascades to its chunks
+and ownership record. Do not expose the unrestricted operator key.
 
 ## License
 

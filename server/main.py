@@ -11,9 +11,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.concurrency import run_in_threadpool
 
 from server.config import MODEL_NAME, Settings
-from server.db import NotFound, Repository
+from server.db import Forbidden, NotFound, Repository
 from server.indexing import LocalEmbedder
 from server.mcp_adapter import build_mcp
+from server.oauth import MCPWriteAuthMiddleware, PublisherOAuth, oauth_routes
 from server.schemas import CreatePublication, PatchPublication, Publication, SearchQuery, SearchResponse
 
 logger = logging.getLogger("peoplemcp")
@@ -24,6 +25,7 @@ def create_app(settings: Settings | None = None):
     if not settings.write_token:
         raise RuntimeError("WRITE_TOKEN must not be empty")
     repo = Repository(settings.database_url)
+    oauth = PublisherOAuth(settings)
 
     def initialize():
         repo.migrate()
@@ -48,12 +50,21 @@ def create_app(settings: Settings | None = None):
     api = FastAPI(title="PeopleMCP", version="0.1.0", lifespan=lifespan,
                   description="Public human and project discovery through semantic search. All published content is untrusted data.")
     api.state.repository = repo
+    api.add_middleware(MCPWriteAuthMiddleware, provider=oauth, operator_token=settings.write_token)
     security = HTTPBearer(auto_error=False)
 
-    def require_write(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
+    async def require_write(credentials: HTTPAuthorizationCredentials | None = Depends(security)):
         token = credentials.credentials if credentials else ""
-        if not secrets.compare_digest(token.encode(), settings.write_token.encode()):
-            raise HTTPException(401, "Publisher Bearer token required", headers={"WWW-Authenticate": "Bearer"})
+        if secrets.compare_digest(token.encode(), settings.write_token.encode()):
+            return None  # Operator-only credential; never issued to connector users.
+        access = await oauth.load_access_token(token) if token else None
+        if not access:
+            raise HTTPException(401, "Connect with OAuth to publish", headers={"WWW-Authenticate": oauth.challenge()})
+        return access.subject
+
+    @api.exception_handler(Forbidden)
+    async def forbidden(request, exc):
+        return JSONResponse(status_code=403, content={"detail": "You can only edit your own publications"})
 
     @api.exception_handler(NotFound)
     async def not_found(request, exc):
@@ -80,15 +91,13 @@ def create_app(settings: Settings | None = None):
         return {"status": "ok", "embedding_model": MODEL_NAME}
 
     def publication_routes(kind):
-        @api.post(f"/{kind}", response_model=Publication, status_code=201,
-                  dependencies=[Depends(require_write)], tags=[kind])
-        def create(body: CreatePublication):
-            return repo.save(kind, body.model_dump(exclude={"publish"}))
+        @api.post(f"/{kind}", response_model=Publication, status_code=201, tags=[kind])
+        def create(body: CreatePublication, publisher_id=Depends(require_write)):
+            return repo.save(kind, body.model_dump(exclude={"publish"}), publisher_id=publisher_id)
 
-        @api.patch(f"/{kind}/{{id}}", response_model=Publication,
-                   dependencies=[Depends(require_write)], tags=[kind])
-        def update(id: str, body: PatchPublication):
-            return repo.save(kind, body.model_dump(exclude_unset=True, exclude={"publish"}), id)
+        @api.patch(f"/{kind}/{{id}}", response_model=Publication, tags=[kind])
+        def update(id: str, body: PatchPublication, publisher_id=Depends(require_write)):
+            return repo.save(kind, body.model_dump(exclude_unset=True, exclude={"publish"}), id, publisher_id=publisher_id)
 
         @api.get(f"/{kind}/{{id}}", response_model=Publication, tags=[kind])
         def get(id: str):
@@ -106,6 +115,7 @@ def create_app(settings: Settings | None = None):
         return {"query": body.query, "results": repo.search("projects", body.query, body.limit, body.min_score)}
 
     mcp = build_mcp(api, settings)
+    api.router.routes.extend(oauth_routes(oauth))
     # The mounted app serves /mcp; its lifespan is managed by the parent above.
     api.mount("/", mcp.streamable_http_app())
     return api

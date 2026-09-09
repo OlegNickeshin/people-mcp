@@ -184,10 +184,14 @@ class MCPSmoke(unittest.IsolatedAsyncioTestCase):
                         for kind, singular, search in (("profiles", "profile", "people"), ("projects", "project", "projects")):
                             payload = {"slug": "test-" + uuid4().hex, "content": "I work on marine ecology and coral reef restoration.",
                                        "contact": "fixture@example.org", "publish": True}
-                            response = await session.call_tool(f"upsert_{singular}", payload)
                             if not authenticated:
-                                self.assertTrue(response.isError)
+                                response = await http.post(BASE + "/mcp", json={"jsonrpc": "2.0", "id": 99,
+                                    "method": "tools/call", "params": {"name": f"upsert_{singular}", "arguments": payload}},
+                                    headers={"Accept": "application/json, text/event-stream"})
+                                self.assertEqual(response.status_code, 401)
+                                self.assertIn("resource_metadata", response.headers["www-authenticate"])
                             else:
+                                response = await session.call_tool(f"upsert_{singular}", payload)
                                 saved = unpack(response)
                                 created.append((kind, saved["id"]))
                                 second = unpack(await session.call_tool(f"upsert_{singular}", payload | {"content": "I build experimental open-source tools."}))

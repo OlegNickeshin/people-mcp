@@ -19,15 +19,20 @@ class NotFound(Exception):
     pass
 
 
+class Forbidden(Exception):
+    pass
+
+
 class Repository:
     def __init__(self, database_url: str, embedder=None):
         self.database_url = database_url
         self.embedder = embedder
 
     def migrate(self):
-        migration = Path(__file__).resolve().parent.parent / "migrations/001_initial.sql"
+        migrations = Path(__file__).resolve().parent.parent / "migrations"
         with psycopg.connect(self.database_url) as conn:
-            conn.execute(migration.read_text())
+            for migration in sorted(migrations.glob("[0-9]*.sql")):
+                conn.execute(migration.read_text())
             conn.execute("INSERT INTO index_metadata VALUES ('embedding_model', %s) ON CONFLICT DO NOTHING", (MODEL_NAME,))
             stored = conn.execute("SELECT value FROM index_metadata WHERE key='embedding_model'").fetchone()[0]
             if stored != MODEL_NAME:
@@ -48,7 +53,7 @@ class Repository:
             raise NotFound()
         return row
 
-    def save(self, kind: str, data: dict, identifier: str | None = None):
+    def save(self, kind: str, data: dict, identifier: str | None = None, *, publisher_id=None):
         table, chunks, owner = TABLES[kind]
         with self.connection() as conn:
             old = None
@@ -57,6 +62,11 @@ class Repository:
                     sql.Identifier(table)), (identifier, identifier)).fetchone()
                 if old is None:
                     raise NotFound()
+                if publisher_id is not None:
+                    ownership = conn.execute(sql.SQL("SELECT publisher_id FROM publication_owners WHERE {}=%s").format(
+                        sql.Identifier(owner)), (old["id"],)).fetchone()
+                    if ownership is None or str(ownership["publisher_id"]) != str(publisher_id):
+                        raise Forbidden("You can only update your own publications")
             fields = {k: data.get(k, old[k] if old else None) for k in ("slug", "content", "contact")}
             if old and all(old[k] == fields[k] for k in fields):
                 return old
@@ -70,6 +80,9 @@ class Repository:
             else:
                 row = conn.execute(sql.SQL("INSERT INTO {} (id,slug,content,contact) VALUES (%s,%s,%s,%s) RETURNING *").format(
                     sql.Identifier(table)), (uuid4(), *fields.values())).fetchone()
+                if publisher_id is not None:
+                    conn.execute(sql.SQL("INSERT INTO publication_owners (publisher_id,{}) VALUES (%s,%s)").format(
+                        sql.Identifier(owner)), (publisher_id, row["id"]))
             if indexed is not None:
                 conn.execute(sql.SQL("DELETE FROM {} WHERE {}=%s").format(sql.Identifier(chunks), sql.Identifier(owner)), (row["id"],))
                 statement = sql.SQL("INSERT INTO {} (id,{},text,embedding) VALUES (%s,%s,%s,%s)").format(

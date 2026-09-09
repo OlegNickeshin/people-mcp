@@ -73,6 +73,17 @@ reloads the serving certificate without stopping the application.
 Add `194.87.35.210` to `MCP_ALLOWED_HOSTS` and `https://194.87.35.210` to
 `MCP_ALLOWED_ORIGINS` in `.env`, retaining the existing entries and secrets. Then:
 
+For OAuth set the canonical public hostname in the same `.env`:
+
+```dotenv
+PUBLIC_BASE_URL=https://people-mcp.194-87-35-210.sslip.io
+```
+
+Keep that hostname in `MCP_ALLOWED_HOSTS`. OAuth metadata, consent and token
+endpoints are served by the same FastAPI application behind Caddy. No additional
+service is required. Database backups now also contain private OAuth state;
+keep them root-only. Set `PUBLIC_BASE_URL` before rebuilding the application.
+
 ```sh
 docker compose up -d --wait --wait-timeout 600
 install -o root -g root -m 0644 deploy/people-mcp-cert-renew.service /etc/systemd/system/

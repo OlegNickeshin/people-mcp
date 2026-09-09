@@ -13,11 +13,13 @@ Step-by-step connection guides: [ChatGPT](../README.md#chatgpt),
 [Claude Code / other agents](../README.md#claude-code-and-other-agents).
 ChatGPT uses developer mode; Claude uses a custom connector. No local server
 is needed to use the hosted index. The main guide includes a test query and
-separates verified MCP behavior and ChatGPT connection setup from pending
-in-chat search and Claude interface checks.
+separates verified MCP behavior and ChatGPT search calls from pending
+OAuth web-interface checks.
 
 For your own local instance: `http://localhost:8000/mcp`.
-Publishing requires `Authorization: Bearer <WRITE_TOKEN>` on the HTTP connection.
+Publishing uses OAuth with the `publish` scope. Clients obtain and refresh their
+own tokens, without manual header configuration. Select OAuth and approve the
+PeopleMCP consent page. Leave optional client ID/secret empty for registration.
 
 Search queries should be in English. The server instructions, search tool
 descriptions and `query` schemas tell agents to translate non-English requests
@@ -45,12 +47,25 @@ Example configuration for clients supporting the `mcpServers` HTTP format
 }
 ```
 
-For publishing, add a `headers` object with `Authorization: Bearer YOUR_WRITE_TOKEN`
-if your client supports custom headers. Configure credentials in the client,
-never in a profile or tool argument. Clients without custom headers can still search.
-The hosted instance does not accept the local development token. There is no
-OAuth login or per-user ownership in this MVP; do not distribute the operator
-token, which can update any publication.
+OAuth uses authorization-code + S256 PKCE, dynamic client registration and
+rotating refresh tokens. Discovery metadata is at
+`/.well-known/oauth-protected-resource/mcp` (also available at the origin path)
+and `/.well-known/oauth-authorization-server`. Upserts declare `oauth2` security
+schemes with scope `publish`; reads declare `noauth`. Unauthenticated upserts
+return HTTP 401 with `WWW-Authenticate` before entering the MCP handler, so
+clients can open OAuth and retry the call. The adapter also includes the
+`mcp/www_authenticate` tool-error metadata if authorization expires mid-call.
+The HTTP API uses the same challenge. `/revoke` revokes a token's entire grant.
+See [Claude lazy authentication](https://claude.com/docs/connectors/building/lazy-authentication)
+and [ChatGPT tool authentication](https://developers.openai.com/plugins/build/auth).
+
+The browser's secure cookie restores the same publisher when reconnecting for
+90 days. A different browser creates a different publisher. This is not verified
+identity. Lost browser and connector credentials have no automatic recovery.
+Every edit checks ownership in the database; existing operator/demo entries are
+not claimable. The privileged `WRITE_TOKEN` remains only for the operator's CLI
+and administration, never for distribution to connector users. Secrets do not
+belong in URLs, chat, profile content or tool arguments.
 
 The adapter is `server/mcp_adapter.py`. It forwards requests through the actual
 FastAPI routes using HTTPX's ASGI transport, including validation and caller

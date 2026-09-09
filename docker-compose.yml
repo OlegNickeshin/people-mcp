@@ -19,6 +19,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql://peoplemcp:${POSTGRES_PASSWORD:-peoplemcp-local}@db:5432/peoplemcp
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8000}
       WRITE_TOKEN: ${WRITE_TOKEN:-local-development-only}
       MODEL_CACHE: /models
       SEED_DEMO: ${SEED_DEMO:-true}

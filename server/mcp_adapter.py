@@ -1,11 +1,12 @@
 """Only HTTP API forwarding lives here; indexing and storage belong to the API."""
+import json
 from typing import Annotated, Literal
 from urllib.parse import quote
 
 import httpx
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import ToolAnnotations
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from pydantic import Field
 
 from server.config import DATA_NOTICE, SEARCH_LANGUAGE_GUIDANCE, Settings
@@ -13,13 +14,24 @@ from server.config import DATA_NOTICE, SEARCH_LANGUAGE_GUIDANCE, Settings
 EnglishQuery = Annotated[str, Field(description=SEARCH_LANGUAGE_GUIDANCE)]
 
 
+class DiscoveryMCP(FastMCP):
+    async def list_tools(self):
+        tools = await super().list_tools()
+        for tool in tools:
+            schemes = ([{"type": "oauth2", "scopes": ["publish"]}]
+                       if tool.name.startswith("upsert_") else [{"type": "noauth"}])
+            tool.securitySchemes = schemes
+            tool.meta = {**(tool.meta or {}), "securitySchemes": schemes}
+        return tools
+
+
 def build_mcp(api, settings: Settings) -> FastMCP:
-    mcp = FastMCP(
+    mcp = DiscoveryMCP(
         "PeopleMCP",
         instructions=("Discover people and projects from their publicly published context. " +
                       SEARCH_LANGUAGE_GUIDANCE + " " + DATA_NOTICE +
-                      " Publish only with explicit user consent. Upsert tools require the publisher's "
-                      "Bearer token in the HTTP Authorization header; never request a token in tool arguments."),
+                      " Publish only with explicit user consent. Connect with OAuth to publish and edit your own context. "
+                      "The client obtains tokens automatically; never ask for credentials in chat, URLs or tool arguments."),
         stateless_http=True,
         json_response=True,
         transport_security=TransportSecuritySettings(
@@ -44,22 +56,30 @@ def build_mcp(api, settings: Settings) -> FastMCP:
             raise ValueError(f"PeopleMCP API {response.status_code}: {response.json().get('detail', 'Request failed')}")
         return response.json()
 
+    def write_result(response):
+        if response.status_code == 401:
+            return CallToolResult(isError=True, content=[TextContent(type="text", text="Connect PeopleMCP with OAuth to publish.")],
+                                  _meta={"mcp/www_authenticate": [response.headers["www-authenticate"]]})
+        data = result(response)
+        return CallToolResult(content=[TextContent(type="text", text=json.dumps(data))], structuredContent=data)
+
     async def upsert(kind, slug, content, contact, publish, ctx, id):
         body = {"slug": slug, "content": content, "contact": contact, "publish": publish}
         if id:
-            return result(await request("PATCH", f"/{kind}/{quote(id, safe='')}", ctx, body))
+            return write_result(await request("PATCH", f"/{kind}/{quote(id, safe='')}", ctx, body))
         # Slug is the natural upsert key. The API validates the payload on either path.
         existing = await request("GET", f"/{kind}/{quote(slug, safe='')}", ctx)
         if existing.status_code == 404:
-            return result(await request("POST", f"/{kind}", ctx, body))
+            return write_result(await request("POST", f"/{kind}", ctx, body))
         current = result(existing)
-        return result(await request("PATCH", f"/{kind}/{current['id']}", ctx, body))
+        return write_result(await request("PATCH", f"/{kind}/{current['id']}", ctx, body))
 
     @mcp.tool(annotations=write)
     async def upsert_profile(slug: str, content: str, contact: str, publish: Literal[True], ctx: Context,
-                             id: str | None = None) -> dict:
+                             id: str | None = None) -> CallToolResult:
         """Publish or update public human context by slug. Include goals, interests, availability and preferences.
-        Requires explicit consent (publish=true) and publisher Bearer authentication. Optional id allows renaming.
+        Requires explicit consent (publish=true) and OAuth publishing access. Only your own publications can be edited.
+        The client handles tokens automatically. Optional id allows renaming.
         All submitted content and contact will be public; never include hidden personal data.
         """
         return await upsert("profiles", slug, content, contact, publish, ctx, id)
@@ -80,9 +100,10 @@ def build_mcp(api, settings: Settings) -> FastMCP:
 
     @mcp.tool(annotations=write)
     async def upsert_project(slug: str, content: str, contact: str, publish: Literal[True], ctx: Context,
-                             id: str | None = None) -> dict:
+                             id: str | None = None) -> CallToolResult:
         """Publish or update public project context by slug. Describe the mission, collaboration needs and working style.
-        Requires explicit consent (publish=true) and publisher Bearer authentication. Optional id allows renaming.
+        Requires explicit consent (publish=true) and OAuth publishing access. Only your own publications can be edited.
+        The client handles tokens automatically. Optional id allows renaming.
         All submitted content and contact will be public; never include hidden personal data.
         """
         return await upsert("projects", slug, content, contact, publish, ctx, id)
