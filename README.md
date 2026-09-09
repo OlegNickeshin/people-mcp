@@ -44,15 +44,18 @@ Use **Streamable HTTP** and the `/mcp` endpoint. Public search and get tools nee
 no authentication. On a remote VPS use HTTPS with a trusted certificate for its
 hostname or public IP address; see deployment below.
 
-Example for clients accepting the `mcpServers` URL format:
+Connect to the hosted instance without running a local server. For clients
+accepting the `mcpServers` URL format:
 
 ```json
 {
   "mcpServers": {
-    "people-mcp": { "url": "http://localhost:8000/mcp" }
+    "people-mcp": { "url": "https://194.87.35.210/mcp" }
   }
 }
 ```
+
+For your own local instance, replace the URL with `http://localhost:8000/mcp`.
 
 Publishing additionally requires an HTTP `Authorization: Bearer <WRITE_TOKEN>`
 header configured in the client. The default token `local-development-only` is
