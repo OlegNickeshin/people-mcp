@@ -25,7 +25,7 @@ def build_mcp(api, settings: Settings) -> FastMCP:
         ),
     )
     read = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
-    write = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+    write = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
 
     async def request(method: str, path: str, ctx: Context, body=None):
         incoming = ctx.request_context.request
