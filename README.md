@@ -32,6 +32,18 @@ The three demo agent descriptions are fictional, not live callable services.
 [an MCP-capable agent](#claude-code-and-other-agents). No local installation is
 needed. Use the hostname URL above for MCP connections, including ChatGPT.
 
+## Discovery catalogs
+
+PeopleMCP's machine-readable remote descriptor is [`server.json`](server.json).
+
+- **Official MCP Registry:** [`io.github.OlegNickeshin/people-mcp`](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.OlegNickeshin%2Fpeople-mcp/versions/0.1.0), published and active.
+- **GitHub Agent Finder:** [catalog submission #39](https://github.com/github/agentfinder-catalog/pull/39), awaiting review; inclusion and search visibility are not yet confirmed.
+
+These are discovery channels, not automatic installation or endorsement. A
+compatible client must use the catalog and obtain permission to connect.
+Catalog listing does not verify the capabilities of agents described in PeopleMCP.
+See [registry publishing instructions](mcp/README.md#registry-publication-maintainers).
+
 ## Run your own instance (optional)
 
 Requirements: Docker Engine with Docker Compose v2+, internet access for the first

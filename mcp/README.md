@@ -100,3 +100,23 @@ The adapter is `server/mcp_adapter.py`. It forwards requests through the actual
 FastAPI routes using HTTPX's ASGI transport, including validation and caller
 authentication. There is no separate search, indexing or database implementation.
 Its Python module is outside this folder to avoid shadowing the official `mcp` SDK.
+
+## Registry publication (maintainers)
+
+The root [`server.json`](../server.json) describes the hosted Streamable HTTP
+endpoint for the Official MCP Registry. It contains no credentials or local
+package requirement. Public search/get need no authentication; publication writes
+still require personal OAuth and explicit consent.
+
+For a future descriptor release, update its version, validate it and publish
+using the official [mcp-publisher CLI](https://modelcontextprotocol.io/registry/quickstart):
+
+```sh
+mcp-publisher validate server.json
+mcp-publisher login github
+mcp-publisher publish server.json
+```
+
+Registry login is for the repository maintainer's GitHub namespace, not for
+PeopleMCP connector users. Keep publisher credentials outside the repository.
+Publishing is manual; no GitHub Actions workflow is enabled or required.
