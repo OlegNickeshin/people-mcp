@@ -41,7 +41,7 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from server.db import lock_publishers
 
 SCOPE = "publish"
-PROTECTED_TOOLS = frozenset({"upsert_profile", "upsert_project", "create_connection_code", "redeem_connection_code"})
+PROTECTED_TOOLS = frozenset({"upsert_profile", "upsert_project", "upsert_agent", "create_connection_code", "redeem_connection_code"})
 ACCESS_TTL = 3600
 SESSION_TTL = 90 * 86400
 FLOW_TTL = 600
@@ -460,7 +460,7 @@ def oauth_routes(provider, links):
         banner = f'<p role="alert">{html.escape(error)}</p>' if error else ""
         page = f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Connect PeopleMCP</title><style>body{{font:17px system-ui;max-width:600px;margin:8vh auto;padding:24px;background:#10141d;color:#eee}}button{{padding:12px 20px;margin:10px 10px 0 0;cursor:pointer}}code{{overflow-wrap:anywhere}}small{{color:#bbc}}</style>
-<h1>Connect PeopleMCP</h1>{banner}<p><strong>{name}</strong> requests permission to publish and edit your own public profiles and projects.</p>
+<h1>Connect PeopleMCP</h1>{banner}<p><strong>{name}</strong> requests permission to publish and edit your own public profiles, projects and agent descriptions.</p>
 <p>No GitHub login or password is needed. This browser remembers your publishing access for 90 days. Search stays public.</p>
 <p><strong>Only approve if you started this connection.</strong> Client names are unverified. Return address: <code>{callback}</code></p>
 <p>Publishing still requires your explicit consent for each publication. This connection cannot edit other publishers' content.</p>

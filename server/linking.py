@@ -4,7 +4,9 @@ import secrets
 import time
 from datetime import datetime, timezone
 
-from server.db import lock_publishers
+from psycopg import sql
+
+from server.db import TABLES, lock_publishers
 from server.oauth import digest, threaded
 
 LINK_TTL = 300
@@ -93,14 +95,17 @@ class PublisherLinks:
         if not row:
             return failure(400, "invalid_connection_code", "Code is invalid, expired, replaced or already used. Request a fresh code.")
         source_id = row["publisher_id"]
-        counts = {"profiles": 0, "projects": 0}
+        counts = dict.fromkeys(TABLES, 0)
         different = target_id is not None and str(target_id) != str(source_id)
         if different:
-            counts = conn.execute("SELECT count(profile_id) AS profiles,count(project_id) AS projects "
-                                  "FROM publication_owners WHERE publisher_id=%s", (target_id,)).fetchone()
+            fields = sql.SQL(", ").join(
+                sql.SQL("count({}) AS {}").format(sql.Identifier(owner), sql.Identifier(kind))
+                for kind, (_, _, owner) in TABLES.items())
+            counts = conn.execute(sql.SQL("SELECT {} FROM publication_owners WHERE publisher_id=%s").format(fields),
+                                  (target_id,)).fetchone()
             if any(counts.values()) and not confirm_merge_publications:
                 return failure(409, "merge_confirmation_required",
-                    f"This connection already owns {counts['profiles']} profiles and {counts['projects']} projects. "
+                    "This connection already owns " + ", ".join(f"{count} {kind}" for kind, count in counts.items()) + ". "
                     "Nothing was transferred. Ask the user explicitly before retrying with confirm_merge_publications=true. "
                     "All its publications and existing connections will join the code issuer's owner; content will be preserved.",
                     publications_to_transfer=counts)

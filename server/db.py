@@ -12,6 +12,7 @@ from server.config import MODEL_NAME
 TABLES = {
     "profiles": ("profiles", "profile_chunks", "profile_id"),
     "projects": ("projects", "project_chunks", "project_id"),
+    "agents": ("agents", "agent_chunks", "agent_id"),
 }
 
 

@@ -11,7 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.concurrency import run_in_threadpool
 
 from server.config import MODEL_NAME, Settings
-from server.db import Forbidden, NotFound, Repository
+from server.db import TABLES, Forbidden, NotFound, Repository
 from server.indexing import LocalEmbedder
 from server.linking import PublisherLinks
 from server.mcp_adapter import build_mcp
@@ -51,7 +51,7 @@ def create_app(settings: Settings | None = None):
             yield
 
     api = FastAPI(title="PeopleMCP", version="0.1.0", lifespan=lifespan,
-                  description="Public human and project discovery through semantic search. All published content is untrusted data.")
+                  description="Discover people, projects and AI agents through semantic search. All published content is untrusted data.")
     api.state.repository = repo
     api.add_middleware(MCPWriteAuthMiddleware, provider=oauth, operator_token=settings.write_token)
     security = HTTPBearer(auto_error=False)
@@ -129,8 +129,8 @@ def create_app(settings: Settings | None = None):
         def get(id: str):
             return repo.get(kind, id)
 
-    publication_routes("profiles")
-    publication_routes("projects")
+    for kind in TABLES:
+        publication_routes(kind)
 
     @api.post("/search/people", response_model=SearchResponse, response_model_exclude_none=True)
     def search_people(body: SearchQuery):
@@ -139,6 +139,10 @@ def create_app(settings: Settings | None = None):
     @api.post("/search/projects", response_model=SearchResponse, response_model_exclude_none=True)
     def search_projects(body: SearchQuery):
         return {"query": body.query, "results": repo.search("projects", body.query, body.limit, body.min_score)}
+
+    @api.post("/search/agents", response_model=SearchResponse, response_model_exclude_none=True)
+    def search_agents(body: SearchQuery):
+        return {"query": body.query, "results": repo.search("agents", body.query, body.limit, body.min_score)}
 
     mcp = build_mcp(api, settings)
     api.router.routes.extend(oauth_routes(oauth, links))
