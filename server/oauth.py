@@ -472,7 +472,7 @@ def oauth_routes(provider, links):
 Only use your own code. All connections of this browser's current owner will join the code issuer's owner.</small></p>
 <p><label><input type="checkbox" name="confirm_merge_publications" value="true">
 I also explicitly agree to transfer this browser owner's existing publications, if any. No content will be deleted.</label></p>
-<button name="decision" value="allow">Allow / Разрешить</button><button name="decision" value="deny">Cancel / Отмена</button></form></html>'''
+<button name="decision" value="allow">Allow</button><button name="decision" value="deny">Cancel</button></form></html>'''
         # no-referrer makes browser form POSTs send Origin: null, which our CSRF
         # origin check correctly rejects. Send only the origin (never the flow
         # query string); redirects and other OAuth responses stay no-referrer.

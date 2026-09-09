@@ -86,7 +86,7 @@ restrict custom apps.
 2. Open **Plugins**, click **+**, and create a developer-mode app named
    `PeopleMCP` with the server URL `https://people-mcp.194-87-35-210.sslip.io/mcp`.
 3. Select **OAuth** to publish as well as search. Leave client ID and client
-   secret empty for automatic registration. Approve **Allow / Разрешить** on
+   secret empty for automatic registration. Approve **Allow** on
    the PeopleMCP page. No GitHub login, password or token copying is needed.
    **No Authentication** remains available for search-only connections.
 4. In a conversation, use the **+** menu, choose **Developer mode**, and select
@@ -107,7 +107,7 @@ In Claude on the web or desktop:
 1. Open **Customize → Connectors**, click **+**, then **Add custom connector**.
 2. Enter the name `PeopleMCP` and URL `https://people-mcp.194-87-35-210.sslip.io/mcp`.
    Leave optional OAuth client ID and secret empty: registration is automatic.
-3. Connect/authorize with OAuth when offered and click **Allow / Разрешить**
+3. Connect/authorize with OAuth when offered and click **Allow**
    on PeopleMCP. Then enable PeopleMCP from the conversation's
    **+ → Connectors** menu. Approve search/read tools when prompted.
 

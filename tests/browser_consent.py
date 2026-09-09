@@ -101,7 +101,8 @@ class BrowserConsent(unittest.TestCase):
         self.assertEqual(redirect.status_code, 302)
         # Interception applies to this navigation, not an earlier redirect chain.
         page.goto(redirect.headers["location"])
-        page.get_by_role("button", name="Allow / Разрешить" if decision == "allow" else "Cancel / Отмена").click()
+        self.assertEqual(page.get_by_role("button").all_text_contents(), ["Allow", "Cancel"])
+        page.get_by_role("button", name="Allow" if decision == "allow" else "Cancel", exact=True).click()
         if recreate_old_policy:
             self.assertEqual(origins, ["null"])
             self.assertEqual(statuses, [403])

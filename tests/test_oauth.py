@@ -134,6 +134,14 @@ class OAuthSmoke(unittest.TestCase):
         self.assertIn('resource_metadata="', denied.headers["www-authenticate"])
         self.assertEqual(self.http.get("/profiles/demo-oleg-mcp").status_code, 200)
 
+    def test_consent_controls_are_english(self):
+        client = self.register()
+        form, _ = self.start(client)
+        page = self.http.get(self.origin + "/oauth/consent", params={"flow": form["flow"]})
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('<button name="decision" value="allow">Allow</button>', page.text)
+        self.assertIn('<button name="decision" value="deny">Cancel</button>', page.text)
+
     def test_owner_isolation_same_browser_restore_and_hash_storage(self):
         client, tokens = self.login()
         _, restored = self.login()  # A different connector, same browser owner.
