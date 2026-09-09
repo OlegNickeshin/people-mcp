@@ -1,4 +1,22 @@
-# Replace this host with your own DNS name and set MCP_ALLOWED_HOSTS accordingly.
+# See deploy/README.md before installing: the IP certificate must exist first.
+http://194.87.35.210 {
+    handle /.well-known/acme-challenge/* {
+        root * /var/lib/people-mcp-acme
+        file_server
+    }
+    handle {
+        redir https://194.87.35.210{uri} 308
+    }
+}
+
+https://194.87.35.210 {
+    tls /etc/caddy/people-mcp-tls/fullchain.pem /etc/caddy/people-mcp-tls/privkey.pem
+    encode gzip
+    reverse_proxy 127.0.0.1:8000
+}
+
+# Compatibility address for clients configured before the move to direct-IP HTTPS.
+# The IP endpoint does not depend on this DNS name.
 people-mcp.194-87-35-210.sslip.io {
     encode gzip
     reverse_proxy 127.0.0.1:8000

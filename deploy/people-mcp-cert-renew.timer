@@ -1,0 +1,11 @@
+[Unit]
+Description=Check PeopleMCP IP certificate twice daily
+
+[Timer]
+OnCalendar=*-*-* 00,12:00:00
+RandomizedDelaySec=15min
+Persistent=true
+Unit=people-mcp-cert-renew.service
+
+[Install]
+WantedBy=timers.target

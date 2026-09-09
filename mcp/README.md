@@ -1,6 +1,7 @@
 # Remote MCP
 
 Endpoint: `http://localhost:8000/mcp` (Streamable HTTP).
+Hosted demo: `https://194.87.35.210/mcp`, with a trusted public IP certificate.
 Use your public HTTPS URL for a remote client. Discovery requires no authentication.
 Publishing requires `Authorization: Bearer <WRITE_TOKEN>` on the HTTP connection.
 
@@ -14,7 +15,7 @@ Example configuration for clients supporting the `mcpServers` URL format:
 {
   "mcpServers": {
     "people-mcp": {
-      "url": "https://YOUR_HOST/mcp"
+      "url": "https://194.87.35.210/mcp"
     }
   }
 }

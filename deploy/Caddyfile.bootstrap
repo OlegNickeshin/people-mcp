@@ -1,0 +1,16 @@
+# HTTP challenge route used before the IP certificate exists.
+http://194.87.35.210 {
+    handle /.well-known/acme-challenge/* {
+        root * /var/lib/people-mcp-acme
+        file_server
+    }
+    handle {
+        respond "IP HTTPS setup in progress" 503
+    }
+}
+
+# Preserve the previous endpoint during migration.
+people-mcp.194-87-35-210.sslip.io {
+    encode gzip
+    reverse_proxy 127.0.0.1:8000
+}

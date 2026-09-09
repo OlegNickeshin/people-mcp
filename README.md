@@ -9,6 +9,11 @@ or projects, matching excerpts and the date their publication was last edited.
 This helps discover a collaborator whose intentions fit, beyond resume keywords.
 Job opportunities can be described in project context; there is no separate job board.
 
+Hosted demo: **`https://194.87.35.210/mcp`** (Streamable HTTP), with
+[interactive API docs](https://194.87.35.210/docs). Search is public; publishing
+requires the operator token. The demo uses a trusted IP certificate and does not
+require a domain name. See [IP HTTPS and renewal](deploy/README.md).
+
 ## Run
 
 Requirements: Docker Engine with Docker Compose v2+, internet access for the first
@@ -36,7 +41,8 @@ Remote MCP endpoint: `http://localhost:8000/mcp`.
 ## Connect an MCP client
 
 Use **Streamable HTTP** and the `/mcp` endpoint. Public search and get tools need
-no authentication. On a remote VPS use an HTTPS hostname; see deployment below.
+no authentication. On a remote VPS use HTTPS with a trusted certificate for its
+hostname or public IP address; see deployment below.
 
 Example for clients accepting the `mcpServers` URL format:
 
@@ -210,6 +216,10 @@ authentication, all six tools, and upsert identity. Tests remove only synthetic
 objects they created, using their exact UUIDs. Run them on a demo/test instance.
 
 ## VPS deployment
+
+The running demo uses direct-IP HTTPS with Certbot and a twice-daily renewal
+timer. See [deployment and renewal instructions](deploy/README.md). The domain
+configuration below remains an alternative if you own a domain.
 
 Copy `.env.example` to `.env`, set a long random `WRITE_TOKEN` and database
 password **before first startup**. Generate each with `openssl rand -hex 32`.

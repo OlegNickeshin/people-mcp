@@ -1,0 +1,10 @@
+[Unit]
+Description=Renew PeopleMCP public IP TLS certificate when due
+Wants=network-online.target
+After=network-online.target caddy.service
+
+[Service]
+Type=oneshot
+UMask=0027
+ExecStart=/opt/people-mcp-certbot/bin/certbot renew --cert-name people-mcp-ip --non-interactive --no-random-sleep-on-renew
+TimeoutStartSec=15min
