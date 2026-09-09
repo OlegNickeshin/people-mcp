@@ -14,7 +14,12 @@ Hosted demo: **`https://194.87.35.210/mcp`** (Streamable HTTP), with
 requires the operator token. The demo uses a trusted IP certificate and does not
 require a domain name. See [IP HTTPS and renewal](deploy/README.md).
 
-## Run
+**Use the hosted service:** connect [ChatGPT](#chatgpt), [Claude](#claude), or
+[an MCP-capable agent](#claude-code-and-other-agents). No local installation is
+needed. Use the IP URLs above for new connections; the old `sslip.io` hostname
+is retained only for compatibility.
+
+## Run your own instance (optional)
 
 Requirements: Docker Engine with Docker Compose v2+, internet access for the first
 image/model download, and approximately 2 GB RAM for a small instance. No GPU,
@@ -40,27 +45,111 @@ Remote MCP endpoint: `http://localhost:8000/mcp`.
 
 ## Connect an MCP client
 
-Use **Streamable HTTP** and the `/mcp` endpoint. Public search and get tools need
-no authentication. On a remote VPS use HTTPS with a trusted certificate for its
-hostname or public IP address; see deployment below.
+The hosted PeopleMCP service is live. Use **Streamable HTTP** with:
 
-Connect to the hosted instance without running a local server. For clients
-accepting the `mcpServers` URL format:
+```text
+https://194.87.35.210/mcp
+```
+
+Public search and get tools need **no authentication**. Connect to `/mcp`, not
+`/docs`: [the API docs](https://194.87.35.210/docs) are a browser interface for
+HTTP requests, not an MCP connection URL. Pasting the URL into a chat alone does
+not install the connector.
+
+### ChatGPT
+
+Use ChatGPT on the web with a plan that includes developer mode (currently
+Plus, Pro, Business, Enterprise or Education). Workspace permissions may also
+restrict custom apps.
+
+1. Open **Settings → Security and login** and enable **Developer mode**.
+   This enables custom MCP tools; you do not need to write code.
+2. Open **Plugins**, click **+**, and create a developer-mode app named
+   `PeopleMCP` with the server URL `https://194.87.35.210/mcp`.
+3. Select **No Authentication** for public discovery and save the app.
+4. In a conversation, use the **+** menu, choose **Developer mode**, and select
+   PeopleMCP. Approve the search tool when prompted.
+
+For discovery, enable `search_people`, `search_projects`, `get_profile` and
+`get_project`; leave the two `upsert_*` tools disabled unless you have publishing
+access in a client that supports the required authorization header. Developer
+mode permits external tool calls, so only connect servers you trust.
+
+Menu names and plan access can change; see the
+[official ChatGPT developer-mode instructions](https://developers.openai.com/api/docs/guides/developer-mode).
+
+### Claude
+
+In Claude on the web or desktop:
+
+1. Open **Customize → Connectors**, click **+**, then **Add custom connector**.
+2. Enter the name `PeopleMCP` and URL `https://194.87.35.210/mcp`.
+   Leave OAuth credentials empty: public discovery needs no login or token.
+3. Add the connector, then enable PeopleMCP from the conversation's
+   **+ → Connectors** menu. Approve search/read tools when prompted.
+
+No ChatGPT-style developer mode is required. Custom remote connectors are
+currently available on Free (one custom connector), Pro and Max; Team and
+Enterprise users may need an owner to add the connector first. See
+[Claude's connector instructions](https://support.claude.com/en/articles/11176164-use-connectors-to-extend-claude-s-capabilities).
+
+### Claude Code and other agents
+
+For an installed Claude Code CLI:
+
+```sh
+claude mcp add --transport http people-mcp https://194.87.35.210/mcp
+claude mcp get people-mcp
+```
+
+Use `/mcp` inside Claude Code to inspect the connection. See
+[Claude Code's MCP instructions](https://code.claude.com/docs/en/mcp).
+
+Other agents need an MCP client supporting remote **Streamable HTTP**, not just
+local stdio servers. For clients accepting this `mcpServers` HTTP format:
 
 ```json
 {
   "mcpServers": {
-    "people-mcp": { "url": "https://194.87.35.210/mcp" }
+    "people-mcp": {
+      "type": "http",
+      "url": "https://194.87.35.210/mcp"
+    }
   }
 }
 ```
 
-For your own local instance, replace the URL with `http://localhost:8000/mcp`.
+Configuration keys depend on the client; use its documented format. This JSON
+is not a universal Claude Desktop local-server configuration. For your own
+local instance, replace the URL with `http://localhost:8000/mcp`.
+
+### Try a search
+
+After enabling the connector, ask:
+
+```text
+Use PeopleMCP's search_people tool to find someone who understands MCP and
+Telegram integrations. Show the matching excerpts and the profile's updated_at.
+```
+
+Then try `search_projects` with: "Find a project suitable for someone who
+dislikes enterprise management." With the original fictional demo data, the
+expected top matches are `demo-oleg-mcp` and `demo-weekend-lab`, respectively.
+Use English for this MVP's evaluated search model.
+
+The public HTTPS endpoint, MCP initialization, tool listing and semantic search
+have been verified. The client instructions above follow vendor documentation;
+end-to-end checks in the ChatGPT and Claude interfaces are pending.
+
+### Publishing access
 
 Publishing additionally requires an HTTP `Authorization: Bearer <WRITE_TOKEN>`
 header configured in the client. The default token `local-development-only` is
-for a loopback-only demo. A client without custom headers can still discover
-people and projects. See [MCP details](mcp/README.md) and the runnable client:
+for a loopback-only demo, **not the hosted instance**. A client without custom
+headers can still discover people and projects but cannot publish. This MVP
+does not implement OAuth or individual publisher accounts. Never share the
+operator token publicly or paste it into a chat: it can update any publication.
+See [MCP details](mcp/README.md) and the runnable client for a self-hosted instance:
 
 ```sh
 docker compose exec api python -m examples.mcp_client
